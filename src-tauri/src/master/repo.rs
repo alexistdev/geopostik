@@ -126,7 +126,7 @@ pub fn category_name_taken(conn: &Connection, name: &str, except_id: Option<i64>
 }
 
 pub fn products_in_category(conn: &Connection, category_id: i64) -> AppResult<Vec<i64>> {
-    let mut stmt = conn.prepare("SELECT id FROM products WHERE category_id = ?1")?;
+    let mut stmt = conn.prepare("SELECT id FROM products WHERE category_id = ?1 AND deleted_at IS NULL")?;
     let ids = stmt.query_map([category_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
     Ok(ids)
 }
@@ -182,7 +182,7 @@ pub fn set_master_active(conn: &Connection, t: CodedTable, id: i64, active: bool
 /// Jumlah obat (aktif maupun nonaktif) yang memakai data master ini.
 pub fn master_usage(conn: &Connection, t: CodedTable, id: i64) -> AppResult<i64> {
     Ok(conn.query_row(
-        &format!("SELECT count(*) FROM products WHERE {} = ?1", t.product_column()),
+        &format!("SELECT count(*) FROM products WHERE {} = ?1 AND deleted_at IS NULL", t.product_column()),
         [id],
         |r| r.get(0),
     )?)
@@ -404,6 +404,7 @@ const PRODUCT_FILTER: &str = "
     LEFT JOIN units su ON su.id = pu.unit_id
     LEFT JOIN racks r ON r.id = p.rack_id
     WHERE {text}
+      AND p.deleted_at IS NULL
       AND (:category_id IS NULL OR p.category_id = :category_id)
       AND (:drug_class IS NULL OR p.drug_class = :drug_class)
       AND (:include_inactive = 1 OR p.is_active = 1)";
@@ -502,7 +503,7 @@ pub fn find_product(conn: &Connection, id: i64) -> AppResult<Option<ProductRow>>
         .query_row(
             "SELECT id, code, name, generic_name, manufacturer_id, category_id, drug_class, is_owa,
                     base_unit_id, min_stock_base, rack_id, margin_bp, last_cost_x100, is_active
-             FROM products WHERE id = ?1",
+             FROM products WHERE id = ?1 AND deleted_at IS NULL",
             [id],
             |r| {
                 Ok(ProductRow {
@@ -623,8 +624,28 @@ pub fn update_product(conn: &Connection, id: i64, f: &ProductFields<'_>) -> AppR
 
 pub fn set_product_active(conn: &Connection, id: i64, active: bool) -> AppResult<usize> {
     Ok(conn.execute(
-        "UPDATE products SET is_active = ?2, updated_at = datetime('now', 'localtime') WHERE id = ?1",
+        "UPDATE products SET is_active = ?2, updated_at = datetime('now', 'localtime')
+         WHERE id = ?1 AND deleted_at IS NULL",
         params![id, active],
+    )?)
+}
+
+/// Soft delete: obat ditandai terhapus dan disembunyikan, tidak pernah dihapus permanen.
+pub fn soft_delete_product(conn: &Connection, id: i64, user_id: i64) -> AppResult<usize> {
+    Ok(conn.execute(
+        "UPDATE products SET deleted_at = datetime('now', 'localtime'), deleted_by = ?2, is_active = 0,
+                             updated_at = datetime('now', 'localtime')
+         WHERE id = ?1 AND deleted_at IS NULL",
+        params![id, user_id],
+    )?)
+}
+
+/// Stok fisik obat saat ini (satuan dasar).
+pub fn product_stock_on_hand(conn: &Connection, product_id: i64) -> AppResult<i64> {
+    Ok(conn.query_row(
+        "SELECT COALESCE(SUM(qty_on_hand_base), 0) FROM batches WHERE product_id = ?1",
+        [product_id],
+        |r| r.get(0),
     )?)
 }
 

@@ -88,6 +88,9 @@ pub fn run() {
             master::commands::product_save,
             master::commands::product_prices_save,
             master::commands::product_set_active,
+            master::commands::product_delete,
+            master::commands::product_set_active_many,
+            master::commands::product_delete_many,
             audit::commands::audit_page,
             audit::commands::audit_users,
         ])

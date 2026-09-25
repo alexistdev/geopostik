@@ -40,13 +40,41 @@
 
   <span class="spacer"></span>
 
-  @if (auth.can('PRODUCT_MANAGE')) {
+  @if (canEdit && selected.length) {
+    <span class="selected-count">{{ selected.length }} dicentang</span>
+    <p-select
+      [options]="batchActions"
+      optionLabel="label"
+      optionValue="value"
+      [(ngModel)]="batchAction"
+      (onChange)="runBatch($event.value)"
+      placeholder="Aksi massal"
+      [disabled]="batchRunning()"
+      appendTo="body"
+    >
+      <ng-template #item let-a>
+        <span class="batch-item" [class.danger]="a.value === 'DELETE'"><i [class]="a.icon"></i>{{ a.label }}</span>
+      </ng-template>
+    </p-select>
+  }
+
+  <p-button
+    [label]="selected.length ? 'Cetak label (' + selected.length + ')' : 'Cetak semua label'"
+    icon="pi pi-print"
+    severity="secondary"
+    [outlined]="true"
+    [disabled]="!total()"
+    (onClick)="printLabels()"
+  />
+  @if (canEdit) {
     <p-button label="Tambah Obat" icon="pi pi-plus" (onClick)="editing.set(null)" />
   }
 </div>
 
 <p-table
   [value]="rows()"
+  [(selection)]="selected"
+  dataKey="id"
   [lazy]="true"
   (onLazyLoad)="pageChanged($event.first ?? 0, $event.rows ?? pageSize)"
   [paginator]="true"
@@ -65,6 +93,7 @@
 >
   <ng-template #header>
     <tr>
+      <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
       <th style="width: 7rem">Kode</th>
       <th>Nama</th>
       <th style="width: 10rem">Kategori</th>
@@ -72,11 +101,15 @@
       <th style="width: 10rem" class="num">Harga jual</th>
       <th style="width: 9rem" class="num">Stok</th>
       <th style="width: 5rem">Rak</th>
+      @if (canEdit) {
+        <th style="width: 8.5rem"></th>
+      }
     </tr>
   </ng-template>
 
   <ng-template #body let-row>
-    <tr class="clickable" [class.inactive-row]="!row.isActive" (click)="editing.set(row.id)">
+    <tr [class.inactive-row]="!row.isActive">
+      <td><p-tableCheckbox [value]="row" /></td>
       <td>{{ row.code }}</td>
       <td>
         <div class="name">{{ row.name }}</div>
@@ -102,12 +135,48 @@
         {{ row.stockBase }} <small>{{ row.baseUnitName }}</small>
       </td>
       <td>{{ row.rackName ?? '' }}</td>
+      @if (canEdit) {
+        <td class="actions">
+          <p-button
+            icon="pi pi-pencil"
+            [rounded]="true"
+            [text]="true"
+            size="small"
+            pTooltip="Edit"
+            tooltipPosition="top"
+            ariaLabel="Edit"
+            (onClick)="editing.set(row.id)"
+          />
+          <p-button
+            [icon]="row.isActive ? 'pi pi-ban' : 'pi pi-check-circle'"
+            [rounded]="true"
+            [text]="true"
+            size="small"
+            [severity]="row.isActive ? 'warn' : 'success'"
+            [pTooltip]="row.isActive ? 'Nonaktifkan' : 'Aktifkan'"
+            tooltipPosition="top"
+            [ariaLabel]="row.isActive ? 'Nonaktifkan' : 'Aktifkan'"
+            (onClick)="toggleActive(row)"
+          />
+          <p-button
+            icon="pi pi-trash"
+            [rounded]="true"
+            [text]="true"
+            size="small"
+            severity="danger"
+            pTooltip="Hapus"
+            tooltipPosition="top"
+            ariaLabel="Hapus"
+            (onClick)="confirmDelete(row)"
+          />
+        </td>
+      }
     </tr>
   </ng-template>
 
   <ng-template #emptymessage>
     <tr>
-      <td colspan="7" class="empty">Tidak ada obat yang cocok.</td>
+      <td colspan="9" class="empty">Tidak ada obat yang cocok.</td>
     </tr>
   </ng-template>
 </p-table>

@@ -6,7 +6,7 @@ use serde_json::{Map, Value, json};
 use super::model::{
     Category, CategoryInput, CategoryPage, DrugClass, MasterKind, MasterPageQuery, NamedItem, NamedItemInput,
     NamedItemPage, PriceMode, ProductDetail, ProductInput, ProductListQuery,
-    ProductListResult, ProductPricesInput, ProductSaveResult, ProductUnitDetail, ProductUnitInput, Unit,
+    ProductListResult, BatchResult, ProductPricesInput, ProductSaveResult, ProductUnitDetail, ProductUnitInput, Unit,
 };
 use super::pricing::{auto_price, unit_cost};
 use super::repo::{self, CodedTable, NamedTable, ProductFields};
@@ -547,21 +547,105 @@ fn match_existing<'a>(existing: &'a [repo::ProductUnitRow], u: &ProductUnitInput
 
 pub fn set_product_active(conn: &Connection, user: &SessionUser, id: i64, active: bool) -> AppResult<()> {
     let tx = conn.unchecked_transaction()?;
-    let before = product_snapshot(&tx, id)?;
-    repo::set_product_active(&tx, id, active)?;
+    set_product_active_in(&tx, user, id, active)?;
+    tx.commit()?;
+    Ok(())
+}
+
+fn set_product_active_in(tx: &Connection, user: &SessionUser, id: i64, active: bool) -> AppResult<()> {
+    let before = product_snapshot(tx, id)?;
+    repo::set_product_active(tx, id, active)?;
     audit::log_change(
-        &tx,
+        tx,
         Change {
             user_id: user.id,
             action: if active { audit::ACTIVATE } else { audit::DEACTIVATE },
             entity: "products",
             entity_id: id,
             before: Some(before),
-            after: Some(product_snapshot(&tx, id)?),
+            after: Some(product_snapshot(tx, id)?),
             reason: None,
         },
     )?;
+    Ok(())
+}
+
+/// Aktifkan/nonaktifkan banyak obat sekaligus dalam satu transaksi. Obat yang statusnya sudah
+/// sesuai dilewati tanpa dicatat di log.
+pub fn set_products_active(conn: &mut Connection, user: &SessionUser, ids: &[i64], active: bool) -> AppResult<BatchResult> {
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let mut result = BatchResult::default();
+    for &id in unique(ids).iter() {
+        match repo::find_product(&tx, id)? {
+            None => result.skipped.push(format!("Obat #{id} tidak ditemukan")),
+            Some(p) if p.is_active == active => {}
+            Some(_) => {
+                set_product_active_in(&tx, user, id, active)?;
+                result.done += 1;
+            }
+        }
+    }
     tx.commit()?;
+    Ok(result)
+}
+
+/// Hapus (soft delete) banyak obat sekaligus dalam satu transaksi. Obat yang masih punya stok
+/// dilewati dan disebutkan di `skipped`; sisanya tetap dihapus.
+pub fn delete_products(conn: &mut Connection, user: &SessionUser, ids: &[i64]) -> AppResult<BatchResult> {
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let mut result = BatchResult::default();
+    for &id in unique(ids).iter() {
+        match delete_product_in(&tx, user, id) {
+            Ok(()) => result.done += 1,
+            Err(AppError::Conflict(m) | AppError::NotFound(m)) => result.skipped.push(m),
+            Err(e) => return Err(e),
+        }
+    }
+    tx.commit()?;
+    Ok(result)
+}
+
+fn unique(ids: &[i64]) -> Vec<i64> {
+    let mut seen = HashSet::new();
+    ids.iter().copied().filter(|id| seen.insert(*id)).collect()
+}
+
+/// Hapus obat (soft delete): obat ditandai terhapus dan disembunyikan dari daftar dan pencarian,
+/// tidak pernah dihapus permanen sehingga riwayat transaksinya tetap utuh. Barcode-nya ikut
+/// dilepas agar bisa dipakai obat lain. Ditolak bila masih ada stok; nonaktifkan saja.
+pub fn delete_product(conn: &mut Connection, user: &SessionUser, id: i64) -> AppResult<()> {
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    delete_product_in(&tx, user, id)?;
+    tx.commit()?;
+    Ok(())
+}
+
+fn delete_product_in(tx: &Connection, user: &SessionUser, id: i64) -> AppResult<()> {
+    let product = repo::find_product(tx, id)?.ok_or_else(|| AppError::NotFound("Obat tidak ditemukan".into()))?;
+    let stock = repo::product_stock_on_hand(tx, id)?;
+    if stock > 0 {
+        return Err(AppError::Conflict(format!(
+            "Obat {} masih punya stok {stock} sehingga tidak bisa dihapus. Nonaktifkan saja.",
+            product.name
+        )));
+    }
+    let before = product_snapshot(tx, id)?;
+    for b in repo::active_product_barcodes(tx, id)? {
+        repo::soft_delete_barcode(tx, b.id, user.id)?;
+    }
+    repo::soft_delete_product(tx, id, user.id)?;
+    audit::log_change(
+        tx,
+        Change {
+            user_id: user.id,
+            action: audit::DELETE,
+            entity: "products",
+            entity_id: id,
+            before: Some(before),
+            after: None,
+            reason: None,
+        },
+    )?;
     Ok(())
 }
 

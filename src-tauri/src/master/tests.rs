@@ -738,3 +738,104 @@ fn product_and_price_changes_are_audited() {
         .unwrap();
     assert_eq!(reason, "Margin kategori Analgesik diubah");
 }
+
+#[test]
+fn product_delete_is_soft_and_blocked_by_stock() {
+    let mut conn = setup();
+    let owner = user(&[Role::Owner]);
+    let cat = service::save_category(
+        &mut conn,
+        &owner,
+        &CategoryInput { id: None, name: "Analgesik".into(), margin_bp: None, is_active: true },
+    )
+    .unwrap();
+    let mut input = paracetamol();
+    input.category_id = Some(cat.id);
+    let p = service::save_product(&mut conn, &owner, &input).unwrap().product;
+
+    // Masih ada stok → ditolak.
+    conn.execute(
+        "INSERT INTO batches (product_id, batch_number, expiry_date, unit_cost_x100, qty_on_hand_base, source_type)
+         VALUES (?1, 'B1', '2030-01-01', 15050, 20, 'OPENING')",
+        [p.id],
+    )
+    .unwrap();
+    let err = service::delete_product(&mut conn, &owner, p.id).unwrap_err();
+    assert!(matches!(err, AppError::Conflict(m) if m.contains("stok 20")));
+
+    // Stok habis → boleh dihapus, tetapi baris tetap ada di database.
+    conn.execute("UPDATE batches SET qty_on_hand_base = 0", []).unwrap();
+    service::delete_product(&mut conn, &owner, p.id).unwrap();
+    let (deleted_at, deleted_by, active): (Option<String>, Option<i64>, bool) = conn
+        .query_row("SELECT deleted_at, deleted_by, is_active FROM products WHERE id = ?1", [p.id], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })
+        .unwrap();
+    assert!(deleted_at.is_some());
+    assert_eq!((deleted_by, active), (Some(1), false));
+
+    // Tersembunyi dari daftar (termasuk nonaktif) dan tidak bisa dibuka/diubah lagi.
+    let all = ProductListQuery { include_inactive: true, limit: 10, ..Default::default() };
+    assert_eq!(service::list_products(&conn, &all).unwrap().total, 0);
+    assert!(matches!(service::get_product(&conn, p.id, PriceAccess::of(&owner)), Err(AppError::NotFound(_))));
+    assert!(service::set_product_active(&conn, &owner, p.id, true).is_err());
+    assert!(matches!(service::delete_product(&mut conn, &owner, p.id), Err(AppError::NotFound(_))));
+
+    // Barcode dilepas sehingga bisa dipakai obat lain; kategori tidak lagi dianggap dipakai.
+    let mut other = paracetamol();
+    other.name = "Paracetamol Baru".into();
+    let q = service::save_product(&mut conn, &owner, &other).unwrap().product;
+    assert_ne!(q.code, p.code, "kode obat terhapus tidak dipakai ulang");
+    service::delete_master(&mut conn, &owner, MasterKind::Category, cat.id).unwrap();
+
+    // DELETE permanen tetap ditolak.
+    assert!(conn.execute("DELETE FROM products WHERE id = ?1", [p.id]).is_err());
+    let action: String = conn
+        .query_row(
+            "SELECT action FROM audit_logs WHERE entity = 'products' AND entity_id = ?1 ORDER BY id DESC LIMIT 1",
+            [p.id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(action, "DELETE");
+}
+
+#[test]
+fn batch_actions_change_many_products_and_skip_stocked_ones() {
+    let mut conn = setup();
+    let owner = user(&[Role::Owner]);
+    let mut ids = Vec::new();
+    for name in ["Obat A", "Obat B", "Obat C"] {
+        let mut input = paracetamol();
+        input.name = name.into();
+        input.units = vec![unit(TABLET, 1, true, &[])];
+        ids.push(service::save_product(&mut conn, &owner, &input).unwrap().product.id);
+    }
+    let active_count = |conn: &Connection| -> i64 {
+        conn.query_row("SELECT count(*) FROM products WHERE is_active = 1 AND deleted_at IS NULL", [], |r| r.get(0))
+            .unwrap()
+    };
+
+    service::set_product_active(&conn, &owner, ids[0], false).unwrap();
+    let r = service::set_products_active(&mut conn, &owner, &[ids[0], ids[1], ids[1], 999], false).unwrap();
+    assert_eq!(r.done, 1, "obat yang sudah nonaktif dan id ganda tidak dihitung");
+    assert_eq!(r.skipped.len(), 1, "id yang tidak ada disebutkan");
+    assert_eq!(active_count(&conn), 1);
+
+    let r = service::set_products_active(&mut conn, &owner, &ids, true).unwrap();
+    assert_eq!((r.done, r.skipped.len()), (2, 0));
+    assert_eq!(active_count(&conn), 3);
+
+    conn.execute(
+        "INSERT INTO batches (product_id, batch_number, expiry_date, unit_cost_x100, qty_on_hand_base, source_type)
+         VALUES (?1, 'B1', '2030-01-01', 100, 5, 'OPENING')",
+        [ids[2]],
+    )
+    .unwrap();
+    let r = service::delete_products(&mut conn, &owner, &ids).unwrap();
+    assert_eq!(r.done, 2);
+    assert!(r.skipped[0].contains("Obat C"));
+    let visible = service::list_products(&conn, &ProductListQuery { include_inactive: true, limit: 10, ..Default::default() })
+        .unwrap();
+    assert_eq!(visible.rows.iter().map(|p| p.id).collect::<Vec<_>>(), [ids[2]]);
+}

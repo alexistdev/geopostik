@@ -339,3 +339,14 @@ pub struct ProductSaveResult {
     /// Peringatan yang tidak menggagalkan simpan, misal harga di bawah HPP.
     pub warnings: Vec<String>,
 }
+
+/// Hasil aksi massal (banyak obat sekaligus).
+#[derive(Debug, Default, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct BatchResult {
+    /// Jumlah data yang benar-benar berubah.
+    pub done: i64,
+    /// Alasan data yang dilewati, misal obat yang masih punya stok.
+    pub skipped: Vec<String>,
+}

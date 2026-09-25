@@ -1,7 +1,7 @@
 use tauri::State;
 
 use super::model::{
-    Category, CategoryInput, CategoryPage, MasterKind, MasterPageQuery, NamedItem, NamedItemInput, NamedItemPage, ProductDetail, ProductInput, ProductListQuery, ProductListResult,
+    BatchResult, Category, CategoryInput, CategoryPage, MasterKind, MasterPageQuery, NamedItem, NamedItemInput, NamedItemPage, ProductDetail, ProductInput, ProductListQuery, ProductListResult,
     ProductPricesInput, ProductSaveResult, Unit,
 };
 use super::repo::NamedTable;
@@ -119,4 +119,22 @@ pub async fn product_prices_save(state: State<'_, AppState>, input: ProductPrice
 pub async fn product_set_active(state: State<'_, AppState>, id: i64, active: bool) -> AppResult<()> {
     let user = state.require(Permission::ProductManage)?;
     service::set_product_active(&*state.db()?, &user, id, active)
+}
+
+#[tauri::command]
+pub async fn product_delete(state: State<'_, AppState>, id: i64) -> AppResult<()> {
+    let user = state.require(Permission::ProductManage)?;
+    service::delete_product(&mut *state.db()?, &user, id)
+}
+
+#[tauri::command]
+pub async fn product_set_active_many(state: State<'_, AppState>, ids: Vec<i64>, active: bool) -> AppResult<BatchResult> {
+    let user = state.require(Permission::ProductManage)?;
+    service::set_products_active(&mut *state.db()?, &user, &ids, active)
+}
+
+#[tauri::command]
+pub async fn product_delete_many(state: State<'_, AppState>, ids: Vec<i64>) -> AppResult<BatchResult> {
+    let user = state.require(Permission::ProductManage)?;
+    service::delete_products(&mut *state.db()?, &user, &ids)
 }

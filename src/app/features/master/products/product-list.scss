@@ -27,6 +27,20 @@
   .spacer {
     flex: 1;
   }
+
+  .selected-count {
+    color: var(--p-text-muted-color);
+  }
+}
+
+.batch-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  &.danger {
+    color: var(--p-red-600);
+  }
 }
 
 p-table {
@@ -34,8 +48,9 @@ p-table {
   min-height: 0;
 }
 
-.clickable {
-  cursor: pointer;
+.actions {
+  white-space: nowrap;
+  text-align: right;
 }
 
 .inactive-row td {

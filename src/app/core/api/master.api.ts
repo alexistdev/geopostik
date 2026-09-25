@@ -1,3 +1,4 @@
+import type { BatchResult } from '../../bindings/BatchResult';
 import type { Category } from '../../bindings/Category';
 import type { CategoryInput } from '../../bindings/CategoryInput';
 import type { CategoryPage } from '../../bindings/CategoryPage';
@@ -36,4 +37,8 @@ export const masterApi = {
   productPricesSave: (input: ProductPricesInput) =>
     call<ProductSaveResult>('product_prices_save', { input }),
   productSetActive: (id: number, active: boolean) => call<void>('product_set_active', { id, active }),
+  productDelete: (id: number) => call<void>('product_delete', { id }),
+  productSetActiveMany: (ids: number[], active: boolean) =>
+    call<BatchResult>('product_set_active_many', { ids, active }),
+  productDeleteMany: (ids: number[]) => call<BatchResult>('product_delete_many', { ids }),
 };
