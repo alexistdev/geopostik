@@ -2,11 +2,7 @@
 import type { DrugClass } from "./DrugClass";
 import type { ProductUnitInput } from "./ProductUnitInput";
 
-export type ProductInput = { id: number | null, 
-/**
- * Kosong → dibuat otomatis (OBT00001).
- */
-code: string | null, name: string, genericName: string | null, manufacturerId: number | null, categoryId: number | null, drugClass: DrugClass, isOwa: boolean, baseUnitId: number, minStockBase: number, rackId: number | null, 
+export type ProductInput = { id: number | null, name: string, genericName: string | null, manufacturerId: number | null, categoryId: number | null, drugClass: DrugClass, isOwa: boolean, baseUnitId: number, minStockBase: number, rackId: number | null, 
 /**
  * Semua satuan aktif. Satuan lama yang tidak dikirim akan dinonaktifkan.
  */

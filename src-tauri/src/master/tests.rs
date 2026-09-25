@@ -44,7 +44,6 @@ fn unit(unit_id: i64, conversion: i64, default: bool, barcodes: &[&str]) -> Prod
 fn paracetamol() -> ProductInput {
     ProductInput {
         id: None,
-        code: None,
         name: "Paracetamol 500 mg".into(),
         generic_name: Some("Paracetamol".into()),
         manufacturer_id: None,
@@ -429,6 +428,39 @@ fn master_codes_are_always_system_generated_and_immutable() {
         let changed = conn.execute(&format!("UPDATE {table} SET code = 'MANUAL-1' WHERE id = ?1"), [id]);
         assert!(changed.is_err(), "{table}");
     }
+}
+
+#[test]
+fn product_code_is_system_generated_and_immutable() {
+    let mut conn = setup();
+    let owner = user(&[Role::Owner]);
+    let first = service::save_product(&mut conn, &owner, &paracetamol()).unwrap().product;
+    let mut other = paracetamol();
+    other.name = "Amoxicillin 500 mg".into();
+    other.units = vec![unit(TABLET, 1, true, &[])];
+    let second = service::save_product(&mut conn, &owner, &other).unwrap().product;
+    assert_eq!((first.code.as_str(), second.code.as_str()), ("OBT00001", "OBT00002"));
+
+    // Mengubah data tidak mengubah kode.
+    let mut edit = paracetamol();
+    edit.id = Some(first.id);
+    edit.name = "Paracetamol 500 mg Strip".into();
+    edit.units = first
+        .units
+        .iter()
+        .map(|u| ProductUnitInput {
+            id: Some(u.id),
+            unit_id: u.unit_id,
+            conversion: u.conversion,
+            is_default_sale: u.is_default_sale,
+            barcodes: u.barcodes.clone(),
+        })
+        .collect();
+    let edited = service::save_product(&mut conn, &owner, &edit).unwrap().product;
+    assert_eq!(edited.code, "OBT00001");
+
+    // Kode tidak bisa diubah, bahkan langsung lewat SQL.
+    assert!(conn.execute("UPDATE products SET code = 'MANUAL-1' WHERE id = ?1", [first.id]).is_err());
 }
 
 #[test]

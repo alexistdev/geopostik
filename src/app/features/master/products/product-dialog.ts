@@ -18,6 +18,7 @@ import type { Unit } from '../../../bindings/Unit';
 import { masterApi } from '../../../core/api/master.api';
 import { AuthService } from '../../../core/auth/auth.service';
 import { Notify } from '../../../core/ui/notify';
+import { Barcode } from '../../../shared/barcode';
 import { CostX100Pipe, RupiahPipe, bpToPercent, percentToBp } from '../../../shared/format';
 import { DRUG_CLASSES, PRICE_MODES } from '../../../shared/labels';
 import { ScanSelect } from '../../../shared/scan-select';
@@ -99,6 +100,7 @@ function emptyData(): DataModel {
     RupiahPipe,
     CostX100Pipe,
     ScanSelect,
+    Barcode,
   ],
   templateUrl: './product-dialog.html',
   styleUrl: './product-dialog.scss',
@@ -263,7 +265,6 @@ export class ProductDialog {
     try {
       const result = await masterApi.productSave({
         id: this.product()?.id ?? null,
-        code: d.code.trim() || null,
         name: d.name,
         genericName: d.genericName || null,
         manufacturerId: d.manufacturerId,

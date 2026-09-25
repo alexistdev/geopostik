@@ -267,8 +267,6 @@ pub struct PriceTierDetail {
 #[ts(export)]
 pub struct ProductInput {
     pub id: Option<i64>,
-    /// Kosong → dibuat otomatis (OBT00001).
-    pub code: Option<String>,
     pub name: String,
     pub generic_name: Option<String>,
     pub manufacturer_id: Option<i64>,

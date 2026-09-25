@@ -22,8 +22,12 @@
           <fieldset [disabled]="!canEditData" class="plain">
             <div class="grid">
               <div class="field">
-                <label for="code">Kode</label>
-                <input pInputText id="code" [(ngModel)]="data.code" placeholder="Otomatis" />
+                <label>Kode</label>
+                @if (data.code) {
+                  <app-barcode [value]="data.code" [height]="28" />
+                } @else {
+                  <small class="code-hint">Dibuat otomatis oleh sistem saat disimpan, lalu bisa dicetak sebagai label barcode.</small>
+                }
               </div>
               <div class="field span-2">
                 <label for="name">Nama dagang *</label>

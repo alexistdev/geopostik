@@ -280,7 +280,6 @@ pub fn get_product(conn: &Connection, id: i64, access: PriceAccess) -> AppResult
 /// kecuali harga otomatis dihitung ulang bila konversi berubah.
 pub fn save_product(conn: &mut Connection, user: &SessionUser, input: &ProductInput) -> AppResult<ProductSaveResult> {
     let name = required(&input.name, "Nama obat")?;
-    let code_input = input.code.as_deref().map(str::trim).filter(|c| !c.is_empty());
     if input.is_owa && input.drug_class != DrugClass::Hard {
         return Err(AppError::Validation("Tanda OWA hanya untuk obat keras".into()));
     }
@@ -311,25 +310,18 @@ pub fn save_product(conn: &mut Connection, user: &SessionUser, input: &ProductIn
             return Err(AppError::Validation("Satuan tidak ditemukan".into()));
         }
     }
-    if let Some(code) = code_input
-        && repo::product_code_taken(&tx, code, input.id)?
-    {
-        return Err(AppError::Conflict(format!("Kode \"{code}\" sudah dipakai obat lain")));
-    }
     for barcode in input.units.iter().flat_map(|u| &u.barcodes) {
         if let Some(owner) = repo::barcode_owner(&tx, barcode.trim(), input.id)? {
             return Err(AppError::Conflict(format!("Barcode {} sudah dipakai oleh {owner}", barcode.trim())));
         }
     }
 
-    let code = match code_input {
-        Some(c) => c.to_owned(),
-        None => match input.id {
-            Some(id) => repo::find_product(&tx, id)?
-                .map(|p| p.code)
-                .ok_or_else(|| AppError::NotFound("Obat tidak ditemukan".into()))?,
-            None => repo::next_product_code(&tx)?,
-        },
+    // Kode obat selalu dibuat sistem dan tidak berubah, seperti kode master data.
+    let code = match input.id {
+        Some(id) => repo::find_product(&tx, id)?
+            .map(|p| p.code)
+            .ok_or_else(|| AppError::NotFound("Obat tidak ditemukan".into()))?,
+        None => repo::next_product_code(&tx)?,
     };
     let fields = ProductFields {
         code: &code,
