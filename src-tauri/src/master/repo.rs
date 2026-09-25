@@ -1,21 +1,24 @@
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::model::{
-    Category, DrugClass, PriceMode, PriceTierDetail, ProductListQuery, ProductListRow, Unit,
+    Category, DrugClass, NamedItem, PriceMode, PriceTierDetail, ProductListQuery, ProductListRow, Unit,
 };
 use crate::error::AppResult;
 
 // ─── Kategori & satuan ───────────────────────────────────────────────────────
 
 pub fn list_categories(conn: &Connection) -> AppResult<Vec<Category>> {
-    let mut stmt = conn.prepare("SELECT id, name, margin_bp, is_active FROM categories ORDER BY name")?;
+    let mut stmt =
+        conn.prepare("SELECT id, code, name, margin_bp, is_active FROM categories
+         WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE")?;
     let rows = stmt
         .query_map([], |r| {
             Ok(Category {
                 id: r.get(0)?,
-                name: r.get(1)?,
-                margin_bp: r.get(2)?,
-                is_active: r.get(3)?,
+                code: r.get(1)?,
+                name: r.get(2)?,
+                margin_bp: r.get(3)?,
+                is_active: r.get(4)?,
             })
         })?
         .collect::<Result<_, _>>()?;
@@ -24,31 +27,43 @@ pub fn list_categories(conn: &Connection) -> AppResult<Vec<Category>> {
 
 pub fn category_margin(conn: &Connection, id: i64) -> AppResult<Option<Option<i64>>> {
     Ok(conn
-        .query_row("SELECT margin_bp FROM categories WHERE id = ?1", [id], |r| r.get(0))
+        .query_row(
+            "SELECT margin_bp FROM categories WHERE id = ?1 AND deleted_at IS NULL",
+            [id],
+            |r| r.get(0),
+        )
         .optional()?)
 }
 
-pub fn insert_category(conn: &Connection, name: &str, margin_bp: Option<i64>, is_active: bool) -> AppResult<i64> {
+pub fn insert_category(conn: &Connection, code: &str, name: &str, margin_bp: Option<i64>, is_active: bool) -> AppResult<i64> {
     conn.execute(
-        "INSERT INTO categories (name, margin_bp, is_active) VALUES (?1, ?2, ?3)",
-        params![name, margin_bp, is_active],
+        "INSERT INTO categories (code, name, margin_bp, is_active) VALUES (?1, ?2, ?3, ?4)",
+        params![code, name, margin_bp, is_active],
     )?;
     Ok(conn.last_insert_rowid())
 }
 
-pub fn update_category(conn: &Connection, id: i64, name: &str, margin_bp: Option<i64>, is_active: bool) -> AppResult<()> {
+pub fn update_category(
+    conn: &Connection,
+    id: i64,
+    code: &str,
+    name: &str,
+    margin_bp: Option<i64>,
+    is_active: bool,
+) -> AppResult<()> {
     conn.execute(
-        "UPDATE categories SET name = ?2, margin_bp = ?3, is_active = ?4,
+        "UPDATE categories SET code = ?2, name = ?3, margin_bp = ?4, is_active = ?5,
                                updated_at = datetime('now', 'localtime')
-         WHERE id = ?1",
-        params![id, name, margin_bp, is_active],
+         WHERE id = ?1 AND deleted_at IS NULL",
+        params![id, code, name, margin_bp, is_active],
     )?;
     Ok(())
 }
 
 pub fn category_name_taken(conn: &Connection, name: &str, except_id: Option<i64>) -> AppResult<bool> {
     Ok(conn.query_row(
-        "SELECT EXISTS (SELECT 1 FROM categories WHERE name = ?1 COLLATE NOCASE AND id IS NOT ?2)",
+        "SELECT EXISTS (SELECT 1 FROM categories
+                        WHERE name = ?1 COLLATE NOCASE AND id IS NOT ?2 AND deleted_at IS NULL)",
         params![name, except_id],
         |r| r.get(0),
     )?)
@@ -58,6 +73,197 @@ pub fn products_in_category(conn: &Connection, category_id: i64) -> AppResult<Ve
     let mut stmt = conn.prepare("SELECT id FROM products WHERE category_id = ?1")?;
     let ids = stmt.query_map([category_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
     Ok(ids)
+}
+
+// ─── Kode master (kategori, rak, pabrik) ─────────────────────────────────────
+
+/// Tabel master yang punya kolom `code`. Nama tabel berasal dari konstanta, bukan input user.
+#[derive(Debug, Clone, Copy)]
+pub enum CodedTable {
+    Categories,
+    Racks,
+    Manufacturers,
+}
+
+impl CodedTable {
+    fn table(self) -> &'static str {
+        match self {
+            CodedTable::Categories => "categories",
+            CodedTable::Racks => "racks",
+            CodedTable::Manufacturers => "manufacturers",
+        }
+    }
+
+    fn prefix(self) -> &'static str {
+        match self {
+            CodedTable::Categories => "KTG",
+            CodedTable::Racks => "RAK",
+            CodedTable::Manufacturers => "PBR",
+        }
+    }
+
+    /// Kolom di `products` yang menunjuk ke tabel ini.
+    fn product_column(self) -> &'static str {
+        match self {
+            CodedTable::Categories => "category_id",
+            CodedTable::Racks => "rack_id",
+            CodedTable::Manufacturers => "manufacturer_id",
+        }
+    }
+}
+
+pub fn set_master_active(conn: &Connection, t: CodedTable, id: i64, active: bool) -> AppResult<usize> {
+    Ok(conn.execute(
+        &format!(
+            "UPDATE {} SET is_active = ?2, updated_at = datetime('now', 'localtime')
+             WHERE id = ?1 AND deleted_at IS NULL",
+            t.table()
+        ),
+        params![id, active],
+    )?)
+}
+
+/// Jumlah obat (aktif maupun nonaktif) yang memakai data master ini.
+pub fn master_usage(conn: &Connection, t: CodedTable, id: i64) -> AppResult<i64> {
+    Ok(conn.query_row(
+        &format!("SELECT count(*) FROM products WHERE {} = ?1", t.product_column()),
+        [id],
+        |r| r.get(0),
+    )?)
+}
+
+/// Soft delete: data ditandai terhapus dan disembunyikan, tidak pernah dihapus permanen.
+pub fn soft_delete_master(conn: &Connection, t: CodedTable, id: i64, user_id: i64) -> AppResult<usize> {
+    Ok(conn.execute(
+        &format!(
+            "UPDATE {} SET deleted_at = datetime('now', 'localtime'), deleted_by = ?2, is_active = 0,
+                          updated_at = datetime('now', 'localtime')
+             WHERE id = ?1 AND deleted_at IS NULL",
+            t.table()
+        ),
+        params![id, user_id],
+    )?)
+}
+
+pub fn code_of(conn: &Connection, t: CodedTable, id: i64) -> AppResult<Option<String>> {
+    Ok(conn
+        .query_row(
+            &format!("SELECT code FROM {} WHERE id = ?1 AND deleted_at IS NULL", t.table()),
+            [id],
+            |r| r.get(0),
+        )
+        .optional()?)
+}
+
+pub fn code_taken(conn: &Connection, t: CodedTable, code: &str, except_id: Option<i64>) -> AppResult<bool> {
+    Ok(conn.query_row(
+        &format!(
+            "SELECT EXISTS (SELECT 1 FROM {}
+                            WHERE code = ?1 COLLATE NOCASE AND id IS NOT ?2 AND deleted_at IS NULL)",
+            t.table()
+        ),
+        params![code, except_id],
+        |r| r.get(0),
+    )?)
+}
+
+/// Kode otomatis berikutnya, misal RAK0001. Kode yang pernah dipakai (termasuk milik data yang
+/// sudah dihapus) dilewati, agar label lama yang masih tertempel tidak menunjuk ke data baru.
+pub fn next_code(conn: &Connection, t: CodedTable) -> AppResult<String> {
+    let mut n: i64 = conn.query_row(
+        &format!("SELECT COALESCE(MAX(id), 0) + 1 FROM {}", t.table()),
+        [],
+        |r| r.get(0),
+    )?;
+    loop {
+        let code = format!("{}{n:04}", t.prefix());
+        let ever_used: bool = conn.query_row(
+            &format!("SELECT EXISTS (SELECT 1 FROM {} WHERE code = ?1 COLLATE NOCASE)", t.table()),
+            [&code],
+            |r| r.get(0),
+        )?;
+        if !ever_used {
+            return Ok(code);
+        }
+        n += 1;
+    }
+}
+
+// ─── Rak & pabrik ────────────────────────────────────────────────────────────
+
+/// Tabel master yang hanya berisi nama. Nama tabel berasal dari konstanta, bukan input user.
+#[derive(Debug, Clone, Copy)]
+pub enum NamedTable {
+    Racks,
+    Manufacturers,
+}
+
+impl NamedTable {
+    fn table(self) -> &'static str {
+        match self {
+            NamedTable::Racks => "racks",
+            NamedTable::Manufacturers => "manufacturers",
+        }
+    }
+
+    pub fn coded(self) -> CodedTable {
+        match self {
+            NamedTable::Racks => CodedTable::Racks,
+            NamedTable::Manufacturers => CodedTable::Manufacturers,
+        }
+    }
+}
+
+pub fn list_named(conn: &Connection, t: NamedTable) -> AppResult<Vec<NamedItem>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT id, code, name, is_active FROM {} WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE",
+        t.table()
+    ))?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(NamedItem { id: r.get(0)?, code: r.get(1)?, name: r.get(2)?, is_active: r.get(3)? })
+        })?
+        .collect::<Result<_, _>>()?;
+    Ok(rows)
+}
+
+pub fn named_exists(conn: &Connection, t: NamedTable, id: i64) -> AppResult<bool> {
+    Ok(conn.query_row(
+        &format!("SELECT EXISTS (SELECT 1 FROM {} WHERE id = ?1 AND deleted_at IS NULL)", t.table()),
+        [id],
+        |r| r.get(0),
+    )?)
+}
+
+pub fn named_name_taken(conn: &Connection, t: NamedTable, name: &str, except_id: Option<i64>) -> AppResult<bool> {
+    Ok(conn.query_row(
+        &format!(
+            "SELECT EXISTS (SELECT 1 FROM {}
+                            WHERE name = ?1 COLLATE NOCASE AND id IS NOT ?2 AND deleted_at IS NULL)",
+            t.table()
+        ),
+        params![name, except_id],
+        |r| r.get(0),
+    )?)
+}
+
+pub fn insert_named(conn: &Connection, t: NamedTable, code: &str, name: &str, is_active: bool) -> AppResult<i64> {
+    conn.execute(
+        &format!("INSERT INTO {} (code, name, is_active) VALUES (?1, ?2, ?3)", t.table()),
+        params![code, name, is_active],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn update_named(conn: &Connection, t: NamedTable, id: i64, code: &str, name: &str, is_active: bool) -> AppResult<usize> {
+    Ok(conn.execute(
+        &format!(
+            "UPDATE {} SET code = ?2, name = ?3, is_active = ?4, updated_at = datetime('now', 'localtime')
+             WHERE id = ?1 AND deleted_at IS NULL",
+            t.table()
+        ),
+        params![id, code, name, is_active],
+    )?)
 }
 
 pub fn list_units(conn: &Connection) -> AppResult<Vec<Unit>> {
@@ -104,6 +310,7 @@ const PRODUCT_FILTER: &str = "
     LEFT JOIN categories c ON c.id = p.category_id
     LEFT JOIN product_units pu ON pu.product_id = p.id AND pu.is_default_sale = 1 AND pu.is_active = 1
     LEFT JOIN units su ON su.id = pu.unit_id
+    LEFT JOIN racks r ON r.id = p.rack_id
     WHERE {text}
       AND (:category_id IS NULL OR p.category_id = :category_id)
       AND (:drug_class IS NULL OR p.drug_class = :drug_class)
@@ -142,7 +349,7 @@ pub fn list_products(conn: &Connection, q: &ProductListQuery) -> AppResult<(Vec<
         "SELECT p.id, p.code, p.name, p.generic_name, c.name, p.drug_class, p.is_owa, bu.name,
                 su.name, pu.sell_price,
                 COALESCE((SELECT SUM(qty_on_hand_base) FROM batches b WHERE b.product_id = p.id), 0),
-                p.min_stock_base, p.rack_location, p.is_active
+                p.min_stock_base, r.name, p.is_active
          {filter}
          ORDER BY p.name COLLATE NOCASE, p.id
          LIMIT :limit OFFSET :offset"
@@ -170,7 +377,7 @@ pub fn list_products(conn: &Connection, q: &ProductListQuery) -> AppResult<(Vec<
                     sale_price: r.get(9)?,
                     stock_base: r.get(10)?,
                     min_stock_base: r.get(11)?,
-                    rack_location: r.get(12)?,
+                    rack_name: r.get(12)?,
                     is_active: r.get(13)?,
                 })
             },
@@ -186,13 +393,13 @@ pub struct ProductRow {
     pub code: String,
     pub name: String,
     pub generic_name: Option<String>,
-    pub manufacturer: Option<String>,
+    pub manufacturer_id: Option<i64>,
     pub category_id: Option<i64>,
     pub drug_class: DrugClass,
     pub is_owa: bool,
     pub base_unit_id: i64,
     pub min_stock_base: i64,
-    pub rack_location: Option<String>,
+    pub rack_id: Option<i64>,
     pub margin_bp: Option<i64>,
     pub last_cost_x100: Option<i64>,
     pub is_active: bool,
@@ -201,8 +408,8 @@ pub struct ProductRow {
 pub fn find_product(conn: &Connection, id: i64) -> AppResult<Option<ProductRow>> {
     Ok(conn
         .query_row(
-            "SELECT id, code, name, generic_name, manufacturer, category_id, drug_class, is_owa,
-                    base_unit_id, min_stock_base, rack_location, margin_bp, last_cost_x100, is_active
+            "SELECT id, code, name, generic_name, manufacturer_id, category_id, drug_class, is_owa,
+                    base_unit_id, min_stock_base, rack_id, margin_bp, last_cost_x100, is_active
              FROM products WHERE id = ?1",
             [id],
             |r| {
@@ -211,13 +418,13 @@ pub fn find_product(conn: &Connection, id: i64) -> AppResult<Option<ProductRow>>
                     code: r.get(1)?,
                     name: r.get(2)?,
                     generic_name: r.get(3)?,
-                    manufacturer: r.get(4)?,
+                    manufacturer_id: r.get(4)?,
                     category_id: r.get(5)?,
                     drug_class: r.get(6)?,
                     is_owa: r.get(7)?,
                     base_unit_id: r.get(8)?,
                     min_stock_base: r.get(9)?,
-                    rack_location: r.get(10)?,
+                    rack_id: r.get(10)?,
                     margin_bp: r.get(11)?,
                     last_cost_x100: r.get(12)?,
                     is_active: r.get(13)?,
@@ -259,23 +466,23 @@ pub struct ProductFields<'a> {
     pub code: &'a str,
     pub name: &'a str,
     pub generic_name: Option<&'a str>,
-    pub manufacturer: Option<&'a str>,
+    pub manufacturer_id: Option<i64>,
     pub category_id: Option<i64>,
     pub drug_class: DrugClass,
     pub is_owa: bool,
     pub base_unit_id: i64,
     pub min_stock_base: i64,
-    pub rack_location: Option<&'a str>,
+    pub rack_id: Option<i64>,
 }
 
 pub fn insert_product(conn: &Connection, f: &ProductFields<'_>) -> AppResult<i64> {
     conn.execute(
-        "INSERT INTO products (code, name, generic_name, manufacturer, category_id, drug_class, is_owa,
-                               base_unit_id, min_stock_base, rack_location)
+        "INSERT INTO products (code, name, generic_name, manufacturer_id, category_id, drug_class, is_owa,
+                               base_unit_id, min_stock_base, rack_id)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
-            f.code, f.name, f.generic_name, f.manufacturer, f.category_id, f.drug_class, f.is_owa,
-            f.base_unit_id, f.min_stock_base, f.rack_location
+            f.code, f.name, f.generic_name, f.manufacturer_id, f.category_id, f.drug_class, f.is_owa,
+            f.base_unit_id, f.min_stock_base, f.rack_id
         ],
     )?;
     Ok(conn.last_insert_rowid())
@@ -283,13 +490,13 @@ pub fn insert_product(conn: &Connection, f: &ProductFields<'_>) -> AppResult<i64
 
 pub fn update_product(conn: &Connection, id: i64, f: &ProductFields<'_>) -> AppResult<()> {
     conn.execute(
-        "UPDATE products SET code = ?2, name = ?3, generic_name = ?4, manufacturer = ?5, category_id = ?6,
+        "UPDATE products SET code = ?2, name = ?3, generic_name = ?4, manufacturer_id = ?5, category_id = ?6,
                              drug_class = ?7, is_owa = ?8, base_unit_id = ?9, min_stock_base = ?10,
-                             rack_location = ?11, updated_at = datetime('now', 'localtime')
+                             rack_id = ?11, updated_at = datetime('now', 'localtime')
          WHERE id = ?1",
         params![
-            id, f.code, f.name, f.generic_name, f.manufacturer, f.category_id, f.drug_class, f.is_owa,
-            f.base_unit_id, f.min_stock_base, f.rack_location
+            id, f.code, f.name, f.generic_name, f.manufacturer_id, f.category_id, f.drug_class, f.is_owa,
+            f.base_unit_id, f.min_stock_base, f.rack_id
         ],
     )?;
     Ok(())

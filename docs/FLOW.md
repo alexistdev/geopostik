@@ -146,9 +146,16 @@ Data per obat:
 - **harga jual per satuan:** default otomatis dari margin (per kategori atau per obat),
   bisa diubah manual; peringatan bila harga jual di bawah HPP
 - **harga grosir/bertingkat** per satuan jual, misal beli ≥ 5 strip harga lebih murah
-- stok minimal (untuk peringatan) dan lokasi rak
+- stok minimal (untuk peringatan) dan rak
 
-Master pendukung: supplier, dokter, pasien/pelanggan, kategori, satuan.
+Master pendukung di menu **Master Data**: kategori, rak, pabrik (dipilih lewat dropdown saat
+tambah/ubah obat). Setiap data punya **kode** yang bisa dicetak sebagai label barcode (misal
+ditempel di rak) dan di-scan untuk mencari atau memilihnya. Setiap baris punya tombol **Edit**,
+**Nonaktifkan/Aktifkan**, dan **Hapus**. Master data **tidak pernah dihapus permanen**: hapus
+berarti soft delete (disembunyikan, riwayat tetap tersimpan). Hapus hanya bisa bila data belum
+dipakai obat mana pun; bila sudah dipakai, nonaktifkan saja (tidak muncul lagi sebagai pilihan,
+obat lama tetap utuh). Menyusul: supplier, dokter, pasien/pelanggan. Jenis satuan dibuat langsung
+dari form obat.
 
 ### D. Pembelian dan penerimaan barang
 ```
@@ -232,12 +239,14 @@ salinan terakhir, dan ada tombol backup manual ke flashdisk. Restore hanya bisa 
 2. Dashboard (peringatan ED, stok menipis, omzet hari ini)
 3. Kasir/POS
 4. Penjualan resep
-5. Master: obat, supplier, dokter, pasien, user
-6. Pembelian/penerimaan barang, hutang supplier
-7. Retur (penjualan dan supplier)
-8. Stok: stok awal, kartu stok, stok opname, pemusnahan
-9. Laporan
-10. Pengaturan: profil apotek, pajak & harga, printer, backup
+5. Obat (daftar & form obat, harga, tier grosir)
+6. Master Data: kategori, rak, pabrik (menyusul supplier, dokter, pasien)
+7. Pembelian/penerimaan barang, hutang supplier
+8. Retur (penjualan dan supplier)
+9. Stok: stok awal, kartu stok, stok opname, pemusnahan
+10. Laporan
+11. Pengguna
+12. Pengaturan: profil apotek, pajak & harga, printer, backup
 
 ## 5. Data utama (gambaran, belum tabel)
 

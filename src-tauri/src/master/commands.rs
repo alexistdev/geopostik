@@ -1,9 +1,10 @@
 use tauri::State;
 
 use super::model::{
-    Category, CategoryInput, ProductDetail, ProductInput, ProductListQuery, ProductListResult,
+    Category, CategoryInput, MasterKind, NamedItem, NamedItemInput, ProductDetail, ProductInput, ProductListQuery, ProductListResult,
     ProductPricesInput, ProductSaveResult, Unit,
 };
+use super::repo::NamedTable;
 use super::service::{self, PriceAccess};
 use crate::auth::Permission;
 use crate::error::AppResult;
@@ -21,6 +22,42 @@ pub async fn category_list(state: State<'_, AppState>) -> AppResult<Vec<Category
 pub async fn category_save(state: State<'_, AppState>, input: CategoryInput) -> AppResult<Category> {
     let user = state.require(Permission::ProductManage)?;
     service::save_category(&mut *state.db()?, &user, &input)
+}
+
+#[tauri::command]
+pub async fn rack_list(state: State<'_, AppState>) -> AppResult<Vec<NamedItem>> {
+    state.current_user()?;
+    service::list_named(&*state.db()?, NamedTable::Racks)
+}
+
+#[tauri::command]
+pub async fn rack_save(state: State<'_, AppState>, input: NamedItemInput) -> AppResult<NamedItem> {
+    state.require(Permission::ProductManage)?;
+    service::save_named(&*state.db()?, NamedTable::Racks, &input)
+}
+
+#[tauri::command]
+pub async fn manufacturer_list(state: State<'_, AppState>) -> AppResult<Vec<NamedItem>> {
+    state.current_user()?;
+    service::list_named(&*state.db()?, NamedTable::Manufacturers)
+}
+
+#[tauri::command]
+pub async fn manufacturer_save(state: State<'_, AppState>, input: NamedItemInput) -> AppResult<NamedItem> {
+    state.require(Permission::ProductManage)?;
+    service::save_named(&*state.db()?, NamedTable::Manufacturers, &input)
+}
+
+#[tauri::command]
+pub async fn master_set_active(state: State<'_, AppState>, kind: MasterKind, id: i64, active: bool) -> AppResult<()> {
+    let user = state.require(Permission::ProductManage)?;
+    service::set_master_active(&*state.db()?, &user, kind, id, active)
+}
+
+#[tauri::command]
+pub async fn master_delete(state: State<'_, AppState>, kind: MasterKind, id: i64) -> AppResult<()> {
+    let user = state.require(Permission::ProductManage)?;
+    service::delete_master(&mut *state.db()?, &user, kind, id)
 }
 
 #[tauri::command]

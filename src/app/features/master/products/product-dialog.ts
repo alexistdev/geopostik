@@ -11,6 +11,7 @@ import { TabsModule } from 'primeng/tabs';
 
 import type { Category } from '../../../bindings/Category';
 import type { DrugClass } from '../../../bindings/DrugClass';
+import type { NamedItem } from '../../../bindings/NamedItem';
 import type { PriceMode } from '../../../bindings/PriceMode';
 import type { ProductDetail } from '../../../bindings/ProductDetail';
 import type { Unit } from '../../../bindings/Unit';
@@ -19,6 +20,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { Notify } from '../../../core/ui/notify';
 import { CostX100Pipe, RupiahPipe, bpToPercent, percentToBp } from '../../../shared/format';
 import { DRUG_CLASSES, PRICE_MODES } from '../../../shared/labels';
+import { ScanSelect } from '../../../shared/scan-select';
 
 interface UnitRow {
   id: number | null;
@@ -32,12 +34,12 @@ interface DataModel {
   code: string;
   name: string;
   genericName: string;
-  manufacturer: string;
+  manufacturerId: number | null;
   categoryId: number | null;
   drugClass: DrugClass;
   isOwa: boolean;
   minStockBase: number | null;
-  rackLocation: string;
+  rackId: number | null;
   /** Baris pertama selalu satuan dasar (isi 1). */
   units: UnitRow[];
   defaultIndex: number;
@@ -71,12 +73,12 @@ function emptyData(): DataModel {
     code: '',
     name: '',
     genericName: '',
-    manufacturer: '',
+    manufacturerId: null,
     categoryId: null,
     drugClass: 'FREE',
     isOwa: false,
     minStockBase: 0,
-    rackLocation: '',
+    rackId: null,
     units: [{ id: null, unitId: null, conversion: 1, barcodes: '' }],
     defaultIndex: 0,
   };
@@ -96,6 +98,7 @@ function emptyData(): DataModel {
     TabsModule,
     RupiahPipe,
     CostX100Pipe,
+    ScanSelect,
   ],
   templateUrl: './product-dialog.html',
   styleUrl: './product-dialog.scss',
@@ -118,6 +121,8 @@ export class ProductDialog {
   protected readonly product = signal<ProductDetail | null>(null);
   protected readonly units = signal<Unit[]>([]);
   protected readonly categories = signal<Category[]>([]);
+  protected readonly racks = signal<NamedItem[]>([]);
+  protected readonly manufacturers = signal<NamedItem[]>([]);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly tab = signal<'data' | 'price'>('data');
@@ -137,13 +142,18 @@ export class ProductDialog {
   async ngOnInit(): Promise<void> {
     try {
       const id = this.productId();
-      const [units, categories, product] = await Promise.all([
+      const [units, categories, racks, manufacturers, product] = await Promise.all([
         masterApi.unitList(),
         masterApi.categoryList(),
+        masterApi.rackList(),
+        masterApi.manufacturerList(),
         id == null ? Promise.resolve(null) : masterApi.productGet(id),
       ]);
+      // Pilihan hanya data aktif, kecuali yang sedang dipakai obat ini.
       this.units.set(units);
       this.categories.set(categories.filter((c) => c.isActive || c.id === product?.categoryId));
+      this.racks.set(racks.filter((r) => r.isActive || r.id === product?.rackId));
+      this.manufacturers.set(manufacturers.filter((m) => m.isActive || m.id === product?.manufacturerId));
       if (product) {
         this.apply(product);
       }
@@ -164,12 +174,12 @@ export class ProductDialog {
       code: p.code,
       name: p.name,
       genericName: p.genericName ?? '',
-      manufacturer: p.manufacturer ?? '',
+      manufacturerId: p.manufacturerId,
       categoryId: p.categoryId,
       drugClass: p.drugClass,
       isOwa: p.isOwa,
       minStockBase: p.minStockBase,
-      rackLocation: p.rackLocation ?? '',
+      rackId: p.rackId,
       units: active.map((u) => ({
         id: u.id,
         unitId: u.unitId,
@@ -256,13 +266,13 @@ export class ProductDialog {
         code: d.code.trim() || null,
         name: d.name,
         genericName: d.genericName || null,
-        manufacturer: d.manufacturer || null,
+        manufacturerId: d.manufacturerId,
         categoryId: d.categoryId,
         drugClass: d.drugClass,
         isOwa: d.isOwa,
         baseUnitId: base.unitId,
         minStockBase: d.minStockBase ?? 0,
-        rackLocation: d.rackLocation || null,
+        rackId: d.rackId,
         units: d.units.map((u, i) => ({
           id: u.id,
           unitId: u.unitId!,

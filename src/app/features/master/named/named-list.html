@@ -1,0 +1,91 @@
+<div class="toolbar">
+  <p-iconfield>
+    <p-inputicon class="pi pi-search" />
+    <input
+      pInputText
+      type="search"
+      [placeholder]="'Cari atau scan kode ' + config().label.toLowerCase()"
+      [ngModel]="filter()"
+      (ngModelChange)="filter.set($event)"
+    />
+  </p-iconfield>
+  <span class="muted">{{ config().hint }}</span>
+  <span class="spacer"></span>
+  <p-button
+    [label]="selected.length ? 'Cetak label (' + selected.length + ')' : 'Cetak semua label'"
+    icon="pi pi-print"
+    severity="secondary"
+    [outlined]="true"
+    [disabled]="!visibleItems().length"
+    (onClick)="printLabels()"
+  />
+  @if (canEdit) {
+    <p-button [label]="'Tambah ' + config().label" icon="pi pi-plus" (onClick)="open()" />
+  }
+</div>
+
+<p-table [value]="visibleItems()" [(selection)]="selected" dataKey="id" size="small" [rowHover]="true">
+  <ng-template #header>
+    <tr>
+      <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
+      <th style="width: 10rem">Kode</th>
+      <th>Nama</th>
+      <th style="width: 8rem">Status</th>
+      @if (canEdit) {
+        <th style="width: 20rem"></th>
+      }
+    </tr>
+  </ng-template>
+  <ng-template #body let-item>
+    <tr>
+      <td><p-tableCheckbox [value]="item" /></td>
+      <td class="code">{{ item.code }}</td>
+      <td>{{ item.name }}</td>
+      <td>
+        <p-tag [value]="item.isActive ? 'Aktif' : 'Nonaktif'" [severity]="item.isActive ? 'success' : 'secondary'" />
+      </td>
+      @if (canEdit) {
+        <td>
+          <app-master-row-actions [kind]="config().kind" [label]="config().label" [row]="item" (edit)="open(item)" (changed)="load()" />
+        </td>
+      }
+    </tr>
+  </ng-template>
+  <ng-template #emptymessage>
+    <tr>
+      <td colspan="5" class="muted">Belum ada data {{ config().label.toLowerCase() }}.</td>
+    </tr>
+  </ng-template>
+</p-table>
+
+@if (form; as f) {
+  <p-dialog
+    [header]="(f.id ? 'Ubah ' : 'Tambah ') + config().label.toLowerCase()"
+    [visible]="true"
+    (visibleChange)="form = null"
+    [modal]="true"
+    [style]="{ width: '420px' }"
+  >
+    <div class="field">
+      <label for="namedName">Nama</label>
+      <input pInputText id="namedName" [(ngModel)]="f.name" [placeholder]="config().placeholder" autofocus (keydown.enter)="save()" />
+    </div>
+    <div class="field">
+      <label for="namedCode">Kode</label>
+      <input pInputText id="namedCode" class="code" [(ngModel)]="f.code" placeholder="Otomatis" maxlength="20" (keydown.enter)="save()" />
+      <small>Huruf, angka, dan tanda hubung. Dicetak sebagai label barcode.</small>
+    </div>
+    @if (f.code.trim()) {
+      <div class="preview"><app-barcode [value]="f.code.trim().toUpperCase()" /></div>
+    }
+    <label class="check">
+      <p-checkbox [(ngModel)]="f.isActive" [binary]="true" />
+      Aktif (muncul sebagai pilihan saat tambah obat)
+    </label>
+
+    <ng-template #footer>
+      <p-button label="Batal" severity="secondary" [text]="true" (onClick)="form = null" />
+      <p-button label="Simpan" icon="pi pi-check" [loading]="saving()" (onClick)="save()" />
+    </ng-template>
+  </p-dialog>
+}

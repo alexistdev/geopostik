@@ -8,8 +8,8 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "tauri": "tauri",
-    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
-    "bindings": "cargo test --manifest-path src-tauri/Cargo.toml export_bindings"
+    "test:rust": "cd src-tauri && cargo test",
+    "bindings": "cd src-tauri && cargo test export_bindings"
   },
   "private": true,
   "packageManager": "npm@11.19.1",
@@ -24,6 +24,7 @@
     "@primeuix/themes": "^2.0.3",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.3",
+    "jsbarcode": "^3.12.3",
     "primeicons": "^7.0.0",
     "primeng": "^21.1.10",
     "rxjs": "~7.8.0",

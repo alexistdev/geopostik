@@ -4,17 +4,18 @@ use rusqlite::{Connection, TransactionBehavior};
 use serde_json::json;
 
 use super::model::{
-    Category, CategoryInput, DrugClass, PriceMode, ProductDetail, ProductInput, ProductListQuery,
+    Category, CategoryInput, DrugClass, MasterKind, NamedItem, NamedItemInput, PriceMode, ProductDetail, ProductInput, ProductListQuery,
     ProductListResult, ProductPricesInput, ProductSaveResult, ProductUnitDetail, ProductUnitInput, Unit,
 };
 use super::pricing::{auto_price, unit_cost};
-use super::repo::{self, ProductFields};
+use super::repo::{self, CodedTable, NamedTable, ProductFields};
 use crate::audit;
 use crate::auth::{Permission, SessionUser};
 use crate::error::{AppError, AppResult};
 use crate::settings::{self, PriceSettings};
 
 const MAX_MARGIN_BP: i64 = 100_000; // 1000%
+const MAX_CODE_LEN: usize = 20;
 
 /// Apa saja yang boleh dilihat/diubah user terkait harga.
 #[derive(Debug, Clone, Copy)]
@@ -55,6 +56,7 @@ pub fn save_category(conn: &mut Connection, user: &SessionUser, input: &Category
     if repo::category_name_taken(&tx, name, input.id)? {
         return Err(AppError::Conflict(format!("Kategori \"{name}\" sudah ada")));
     }
+    let code = resolve_code(&tx, CodedTable::Categories, input.code.as_deref(), input.id)?;
 
     let (id, margin_changed) = match input.id {
         Some(id) => {
@@ -62,14 +64,14 @@ pub fn save_category(conn: &mut Connection, user: &SessionUser, input: &Category
                 .ok_or_else(|| AppError::NotFound("Kategori tidak ditemukan".into()))?;
             // User tanpa hak harga tidak melihat margin, jadi margin lama dipertahankan.
             let margin = if access.manage_price { input.margin_bp } else { old };
-            repo::update_category(&tx, id, name, margin, input.is_active)?;
+            repo::update_category(&tx, id, &code, name, margin, input.is_active)?;
             (id, margin != old)
         }
         None => {
             if input.margin_bp.is_some() && !access.manage_price {
                 return Err(AppError::Forbidden);
             }
-            (repo::insert_category(&tx, name, input.margin_bp, input.is_active)?, false)
+            (repo::insert_category(&tx, &code, name, input.margin_bp, input.is_active)?, false)
         }
     };
 
@@ -96,6 +98,97 @@ pub fn save_category(conn: &mut Connection, user: &SessionUser, input: &Category
         .into_iter()
         .find(|c| c.id == id)
         .ok_or_else(|| AppError::Internal("kategori hilang setelah disimpan".into()))
+}
+
+pub fn list_named(conn: &Connection, table: NamedTable) -> AppResult<Vec<NamedItem>> {
+    repo::list_named(conn, table)
+}
+
+/// Simpan rak atau pabrik.
+pub fn save_named(conn: &Connection, table: NamedTable, input: &NamedItemInput) -> AppResult<NamedItem> {
+    let label = match table {
+        NamedTable::Racks => "rak",
+        NamedTable::Manufacturers => "pabrik",
+    };
+    let name = required(&input.name, &format!("Nama {label}"))?;
+    if repo::named_name_taken(conn, table, name, input.id)? {
+        return Err(AppError::Conflict(format!("Nama {label} \"{name}\" sudah ada")));
+    }
+    let code = resolve_code(conn, table.coded(), input.code.as_deref(), input.id)?;
+    let id = match input.id {
+        Some(id) => {
+            if repo::update_named(conn, table, id, &code, name, input.is_active)? == 0 {
+                return Err(AppError::NotFound(format!("Data {label} tidak ditemukan")));
+            }
+            id
+        }
+        None => repo::insert_named(conn, table, &code, name, input.is_active)?,
+    };
+    Ok(NamedItem { id, code, name: name.to_owned(), is_active: input.is_active })
+}
+
+// ─── Aksi bersama Master Data ────────────────────────────────────────────────
+
+fn coded_table(kind: MasterKind) -> (CodedTable, &'static str) {
+    match kind {
+        MasterKind::Category => (CodedTable::Categories, "Kategori"),
+        MasterKind::Rack => (CodedTable::Racks, "Rak"),
+        MasterKind::Manufacturer => (CodedTable::Manufacturers, "Pabrik"),
+    }
+}
+
+pub fn set_master_active(conn: &Connection, user: &SessionUser, kind: MasterKind, id: i64, active: bool) -> AppResult<()> {
+    let (table, label) = coded_table(kind);
+    if repo::set_master_active(conn, table, id, active)? == 0 {
+        return Err(AppError::NotFound(format!("{label} tidak ditemukan")));
+    }
+    audit::log(
+        conn,
+        audit::Entry {
+            user_id: Some(user.id),
+            action: if active { "MASTER_ACTIVATE" } else { "MASTER_DEACTIVATE" },
+            entity: Some(kind_entity(kind)),
+            entity_id: Some(id),
+            ..Default::default()
+        },
+    )
+}
+
+/// Hapus (soft delete): data ditandai terhapus dan disembunyikan dari daftar dan pilihan, tidak
+/// pernah dihapus permanen. Ditolak bila masih dipakai obat, agar obat tidak menunjuk ke data yang
+/// tersembunyi; untuk data yang masih dipakai, nonaktifkan saja.
+pub fn delete_master(conn: &mut Connection, user: &SessionUser, kind: MasterKind, id: i64) -> AppResult<()> {
+    let (table, label) = coded_table(kind);
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let code = repo::code_of(&tx, table, id)?.ok_or_else(|| AppError::NotFound(format!("{label} tidak ditemukan")))?;
+    let used = repo::master_usage(&tx, table, id)?;
+    if used > 0 {
+        return Err(AppError::Conflict(format!(
+            "{label} {code} dipakai oleh {used} obat sehingga tidak bisa dihapus. Nonaktifkan saja."
+        )));
+    }
+    repo::soft_delete_master(&tx, table, id, user.id)?;
+    audit::log(
+        &tx,
+        audit::Entry {
+            user_id: Some(user.id),
+            action: "MASTER_DELETE",
+            entity: Some(kind_entity(kind)),
+            entity_id: Some(id),
+            detail: Some(json!({ "code": code })),
+            ..Default::default()
+        },
+    )?;
+    tx.commit()?;
+    Ok(())
+}
+
+fn kind_entity(kind: MasterKind) -> &'static str {
+    match kind {
+        MasterKind::Category => "categories",
+        MasterKind::Rack => "racks",
+        MasterKind::Manufacturer => "manufacturers",
+    }
 }
 
 pub fn list_units(conn: &Connection) -> AppResult<Vec<Unit>> {
@@ -148,13 +241,13 @@ pub fn get_product(conn: &Connection, id: i64, access: PriceAccess) -> AppResult
         code: p.code,
         name: p.name,
         generic_name: p.generic_name,
-        manufacturer: p.manufacturer,
+        manufacturer_id: p.manufacturer_id,
         category_id: p.category_id,
         drug_class: p.drug_class,
         is_owa: p.is_owa,
         base_unit_id: p.base_unit_id,
         min_stock_base: p.min_stock_base,
-        rack_location: p.rack_location,
+        rack_id: p.rack_id,
         is_active: p.is_active,
         has_stock: repo::product_has_stock(conn, id)?,
         margin_bp: p.margin_bp.filter(|_| access.view_margin()),
@@ -183,6 +276,16 @@ pub fn save_product(conn: &mut Connection, user: &SessionUser, input: &ProductIn
         && repo::category_margin(&tx, category_id)?.is_none()
     {
         return Err(AppError::Validation("Kategori tidak ditemukan".into()));
+    }
+    if let Some(id) = input.manufacturer_id
+        && !repo::named_exists(&tx, NamedTable::Manufacturers, id)?
+    {
+        return Err(AppError::Validation("Pabrik tidak ditemukan".into()));
+    }
+    if let Some(id) = input.rack_id
+        && !repo::named_exists(&tx, NamedTable::Racks, id)?
+    {
+        return Err(AppError::Validation("Rak tidak ditemukan".into()));
     }
     for u in &input.units {
         if !repo::unit_exists(&tx, u.unit_id)? {
@@ -213,13 +316,13 @@ pub fn save_product(conn: &mut Connection, user: &SessionUser, input: &ProductIn
         code: &code,
         name,
         generic_name: optional(&input.generic_name),
-        manufacturer: optional(&input.manufacturer),
+        manufacturer_id: input.manufacturer_id,
         category_id: input.category_id,
         drug_class: input.drug_class,
         is_owa: input.is_owa,
         base_unit_id: input.base_unit_id,
         min_stock_base: input.min_stock_base,
-        rack_location: optional(&input.rack_location),
+        rack_id: input.rack_id,
     };
 
     let (product_id, action) = match input.id {
@@ -535,6 +638,31 @@ fn required<'a>(value: &'a str, label: &str) -> AppResult<&'a str> {
 
 fn optional(value: &Option<String>) -> Option<&str> {
     value.as_deref().map(str::trim).filter(|v| !v.is_empty())
+}
+
+/// Kode master yang akan disimpan: kode dari user (dinormalisasi), kode lama bila dikosongkan
+/// saat ubah, atau kode otomatis untuk data baru.
+fn resolve_code(conn: &Connection, table: CodedTable, input: Option<&str>, id: Option<i64>) -> AppResult<String> {
+    let typed = input.map(|c| c.trim().to_uppercase()).filter(|c| !c.is_empty());
+    let code = match (typed, id) {
+        (Some(code), _) => {
+            let valid_chars = code.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '-');
+            if !valid_chars || code.len() > MAX_CODE_LEN {
+                return Err(AppError::Validation(format!(
+                    "Kode hanya boleh huruf, angka, dan tanda hubung (maksimal {MAX_CODE_LEN} karakter)"
+                )));
+            }
+            code
+        }
+        (None, Some(id)) => {
+            repo::code_of(conn, table, id)?.ok_or_else(|| AppError::NotFound("Data tidak ditemukan".into()))?
+        }
+        (None, None) => return repo::next_code(conn, table),
+    };
+    if repo::code_taken(conn, table, &code, id)? {
+        return Err(AppError::Conflict(format!("Kode {code} sudah dipakai")));
+    }
+    Ok(code)
 }
 
 fn validate_margin(margin_bp: Option<i64>) -> AppResult<()> {

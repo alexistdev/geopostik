@@ -3,7 +3,7 @@ import { Routes } from '@angular/router';
 import { authGuard, guestGuard, permissionGuard, setupGuard } from './core/auth/guards';
 import { NAV_ITEMS } from './layout/nav';
 
-const BUILT = ['dashboard', 'master'];
+const BUILT = ['dashboard', 'obat', 'master-data'];
 
 // Menu yang belum punya halaman sendiri memakai Placeholder.
 const pendingRoutes: Routes = NAV_ITEMS.filter((item) => !BUILT.includes(item.path)).map((item) => ({
@@ -35,20 +35,30 @@ export const routes: Routes = [
         loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.Dashboard),
       },
       {
-        path: 'master',
+        path: 'obat',
         canActivate: [permissionGuard('PRODUCT_MANAGE')],
-        loadComponent: () => import('./features/master/master-page').then((m) => m.MasterPage),
+        loadComponent: () => import('./features/master/products/product-list').then((m) => m.ProductList),
+      },
+      {
+        path: 'master-data',
+        canActivate: [permissionGuard('PRODUCT_MANAGE')],
+        loadComponent: () => import('./features/master/master-data-page').then((m) => m.MasterDataPage),
         children: [
-          { path: '', pathMatch: 'full', redirectTo: 'obat' },
-          {
-            path: 'obat',
-            loadComponent: () =>
-              import('./features/master/products/product-list').then((m) => m.ProductList),
-          },
+          { path: '', pathMatch: 'full', redirectTo: 'kategori' },
           {
             path: 'kategori',
             loadComponent: () =>
               import('./features/master/categories/category-list').then((m) => m.CategoryList),
+          },
+          {
+            path: 'rak',
+            data: { kind: 'rack' },
+            loadComponent: () => import('./features/master/named/named-list').then((m) => m.NamedList),
+          },
+          {
+            path: 'pabrik',
+            data: { kind: 'manufacturer' },
+            loadComponent: () => import('./features/master/named/named-list').then((m) => m.NamedList),
           },
         ],
       },

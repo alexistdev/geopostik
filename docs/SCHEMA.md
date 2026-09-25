@@ -15,7 +15,7 @@ Turunan dari [FLOW.md](FLOW.md). Masih tahap rancangan, belum migration/DDL fina
 | Tanggal & waktu | `TEXT` waktu lokal `YYYY-MM-DD HH:MM:SS`; tanggal saja `YYYY-MM-DD` (ED, tanggal faktur) |
 | Boolean | `INTEGER` 0/1 |
 | Enum | `TEXT` + `CHECK (kolom IN (...))` |
-| Master data | Tidak dihapus, dinonaktifkan (`is_active = 0`) |
+| Master data | **Tidak pernah dihapus permanen.** Nonaktif = `is_active = 0` (tidak muncul sebagai pilihan). Hapus = soft delete `deleted_at` + `deleted_by` (disembunyikan dari daftar). Trigger menolak `DELETE` di semua tabel master |
 | Transaksi | Tidak dihapus, ditandai `VOID` + transaksi pembalik |
 | PRAGMA | `foreign_keys = ON`, `journal_mode = WAL`, `synchronous = NORMAL` |
 
@@ -86,6 +86,7 @@ Penomoran dokumen per hari/bulan, misal `PJ-260925-0001`.
 | Kolom | Tipe | Keterangan |
 |---|---|---|
 | id | INTEGER PK | |
+| code | TEXT UNIQUE | kode/label barcode, otomatis `KTG0001` |
 | name | TEXT UNIQUE | |
 | margin_bp | INTEGER NULL | margin default kategori; NULL = pakai margin global |
 
@@ -104,13 +105,13 @@ Kamus satuan: tablet, kapsul, strip, box, botol, tube, pcs, dst.
 | code | TEXT UNIQUE | kode internal |
 | name | TEXT | nama dagang |
 | generic_name | TEXT NULL | |
-| manufacturer | TEXT NULL | pabrik |
+| manufacturer_id | FK manufacturers NULL | pabrik |
 | category_id | FK categories | |
 | drug_class | TEXT | `FREE` / `LIMITED_FREE` / `HARD` / `PSYCHOTROPIC` / `NARCOTIC` |
 | is_owa | INTEGER | Obat Wajib Apotek |
 | base_unit_id | FK units | satuan terkecil, satuan penyimpanan stok |
 | min_stock_base | INTEGER | batas peringatan stok |
-| rack_location | TEXT NULL | |
+| rack_id | FK racks NULL | lokasi rak |
 | margin_bp | INTEGER NULL | override margin; NULL = ikut kategori |
 | last_cost_x100 | INTEGER NULL | HPP per satuan terkecil dari pembelian terakhir (dasar harga otomatis) |
 | is_active | INTEGER | |
@@ -157,6 +158,23 @@ Aturan:
 | id | INTEGER PK | |
 | product_unit_id | FK product_units | scan barcode langsung tahu obat **dan** satuannya |
 | barcode | TEXT UNIQUE | |
+
+### `racks`, `manufacturers`
+Master sederhana (id, code, name UNIQUE tanpa beda huruf besar/kecil, is_active), dikelola di menu
+**Master Data** dan dipilih lewat dropdown saat tambah/ubah obat. Ditambahkan di migration
+`002_racks_manufacturers.sql`, yang juga memindahkan isi kolom teks lama `products.manufacturer`
+dan `products.rack_location`.
+
+**Soft delete** (migration `004_master_soft_delete.sql`): `categories`, `racks`, `manufacturers`
+punya `deleted_at` dan `deleted_by`. Nama dan kode unik hanya di antara data yang belum dihapus
+(index unik parsial), sehingga boleh dipakai lagi. Hapus ditolak bila data masih dipakai obat.
+Master baru (supplier, dokter, pelanggan, dst.) mengikuti pola yang sama.
+
+**Kode master** (`categories.code`, `racks.code`, `manufacturers.code`, migration `003_master_codes.sql`):
+huruf besar, angka, dan tanda hubung, maksimal 20 karakter, unik per tabel. Bila dikosongkan,
+dibuat otomatis `KTG0001` / `RAK0001` / `PBR0001`; kode otomatis tidak memakai ulang kode milik
+data yang sudah dihapus. Dicetak sebagai label barcode Code 128 dan
+bisa di-scan untuk mencari atau memilih data (misal scan label rak saat mengisi form obat).
 
 ### `suppliers`, `doctors`, `customers`
 | Tabel | Kolom utama |

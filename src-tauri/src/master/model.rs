@@ -62,11 +62,22 @@ text_enum!(PriceMode {
 
 // ─── Kategori & satuan ───────────────────────────────────────────────────────
 
+/// Jenis data di menu Master Data, untuk aksi bersama (aktif/nonaktif, hapus).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[ts(export)]
+pub enum MasterKind {
+    Category,
+    Rack,
+    Manufacturer,
+}
+
 #[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct Category {
     pub id: i64,
+    pub code: String,
     pub name: String,
     /// `None` bila user tidak berhak melihat margin, atau kategori tidak punya margin sendiri.
     pub margin_bp: Option<i64>,
@@ -78,8 +89,32 @@ pub struct Category {
 #[ts(export)]
 pub struct CategoryInput {
     pub id: Option<i64>,
+    /// Kosong → dibuat otomatis (KTG0001) untuk data baru, atau tetap kode lama saat ubah.
+    pub code: Option<String>,
     pub name: String,
     pub margin_bp: Option<i64>,
+    pub is_active: bool,
+}
+
+/// Master sederhana yang hanya berisi nama: rak dan pabrik.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NamedItem {
+    pub id: i64,
+    pub code: String,
+    pub name: String,
+    pub is_active: bool,
+}
+
+#[derive(Debug, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NamedItemInput {
+    pub id: Option<i64>,
+    /// Kosong → dibuat otomatis (RAK0001 / PBR0001) untuk data baru, atau tetap kode lama saat ubah.
+    pub code: Option<String>,
+    pub name: String,
     pub is_active: bool,
 }
 
@@ -123,7 +158,7 @@ pub struct ProductListRow {
     /// Total stok semua batch, dalam satuan terkecil.
     pub stock_base: i64,
     pub min_stock_base: i64,
-    pub rack_location: Option<String>,
+    pub rack_name: Option<String>,
     pub is_active: bool,
 }
 
@@ -145,13 +180,13 @@ pub struct ProductDetail {
     pub code: String,
     pub name: String,
     pub generic_name: Option<String>,
-    pub manufacturer: Option<String>,
+    pub manufacturer_id: Option<i64>,
     pub category_id: Option<i64>,
     pub drug_class: DrugClass,
     pub is_owa: bool,
     pub base_unit_id: i64,
     pub min_stock_base: i64,
-    pub rack_location: Option<String>,
+    pub rack_id: Option<i64>,
     pub is_active: bool,
     /// Sudah punya batch → satuan dasar & konversi satuan lama tidak bisa diubah.
     pub has_stock: bool,
@@ -203,13 +238,13 @@ pub struct ProductInput {
     pub code: Option<String>,
     pub name: String,
     pub generic_name: Option<String>,
-    pub manufacturer: Option<String>,
+    pub manufacturer_id: Option<i64>,
     pub category_id: Option<i64>,
     pub drug_class: DrugClass,
     pub is_owa: bool,
     pub base_unit_id: i64,
     pub min_stock_base: i64,
-    pub rack_location: Option<String>,
+    pub rack_id: Option<i64>,
     /// Semua satuan aktif. Satuan lama yang tidak dikirim akan dinonaktifkan.
     pub units: Vec<ProductUnitInput>,
 }

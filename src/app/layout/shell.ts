@@ -1,6 +1,7 @@
 import { Component, computed, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
 
 import { AuthService } from '../core/auth/auth.service';
@@ -8,7 +9,7 @@ import { NAV_ITEMS } from './nav';
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ButtonModule, ToastModule],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ButtonModule, ConfirmDialogModule, ToastModule],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
 })

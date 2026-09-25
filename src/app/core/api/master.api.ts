@@ -1,5 +1,8 @@
 import type { Category } from '../../bindings/Category';
 import type { CategoryInput } from '../../bindings/CategoryInput';
+import type { MasterKind } from '../../bindings/MasterKind';
+import type { NamedItem } from '../../bindings/NamedItem';
+import type { NamedItemInput } from '../../bindings/NamedItemInput';
 import type { ProductDetail } from '../../bindings/ProductDetail';
 import type { ProductInput } from '../../bindings/ProductInput';
 import type { ProductListQuery } from '../../bindings/ProductListQuery';
@@ -12,6 +15,13 @@ import { call } from './tauri';
 export const masterApi = {
   categoryList: () => call<Category[]>('category_list'),
   categorySave: (input: CategoryInput) => call<Category>('category_save', { input }),
+  rackList: () => call<NamedItem[]>('rack_list'),
+  rackSave: (input: NamedItemInput) => call<NamedItem>('rack_save', { input }),
+  manufacturerList: () => call<NamedItem[]>('manufacturer_list'),
+  manufacturerSave: (input: NamedItemInput) => call<NamedItem>('manufacturer_save', { input }),
+  masterSetActive: (kind: MasterKind, id: number, active: boolean) =>
+    call<void>('master_set_active', { kind, id, active }),
+  masterDelete: (kind: MasterKind, id: number) => call<void>('master_delete', { kind, id }),
   unitList: () => call<Unit[]>('unit_list'),
   unitCreate: (name: string) => call<Unit>('unit_create', { name }),
   productList: (query: ProductListQuery) => call<ProductListResult>('product_list', { query }),

@@ -35,20 +35,41 @@
               </div>
               <div class="field">
                 <label for="manufacturer">Pabrik</label>
-                <input pInputText id="manufacturer" [(ngModel)]="data.manufacturer" />
+                <p-select
+                  inputId="manufacturer"
+                  appScanSelect
+                  [options]="manufacturers()"
+                  optionLabel="name"
+                  optionValue="id"
+                  [(ngModel)]="data.manufacturerId"
+                  [filter]="true"
+                  filterBy="name,code"
+                  [showClear]="true"
+                  placeholder="Pilih atau scan kode pabrik"
+                  emptyMessage="Belum ada data. Tambahkan di menu Master Data → Pabrik"
+                  appendTo="body"
+                >
+                  <ng-template #item let-o><span class="opt-code">{{ o.code }}</span> {{ o.name }}</ng-template>
+                </p-select>
               </div>
               <div class="field">
                 <label for="category">Kategori</label>
                 <p-select
                   inputId="category"
+                  appScanSelect
                   [options]="categories()"
                   optionLabel="name"
                   optionValue="id"
                   [(ngModel)]="data.categoryId"
                   [showClear]="true"
+                  [filter]="true"
+                  filterBy="name,code"
                   placeholder="Tanpa kategori"
+                  emptyMessage="Belum ada data. Tambahkan di menu Master Data → Kategori"
                   appendTo="body"
-                />
+                >
+                  <ng-template #item let-o><span class="opt-code">{{ o.code }}</span> {{ o.name }}</ng-template>
+                </p-select>
               </div>
               <div class="field">
                 <label for="drugClass">Golongan *</label>
@@ -63,8 +84,23 @@
                 />
               </div>
               <div class="field">
-                <label for="rack">Lokasi rak</label>
-                <input pInputText id="rack" [(ngModel)]="data.rackLocation" />
+                <label for="rack">Rak</label>
+                <p-select
+                  inputId="rack"
+                  appScanSelect
+                  [options]="racks()"
+                  optionLabel="name"
+                  optionValue="id"
+                  [(ngModel)]="data.rackId"
+                  [filter]="true"
+                  filterBy="name,code"
+                  [showClear]="true"
+                  placeholder="Pilih atau scan kode rak"
+                  emptyMessage="Belum ada data. Tambahkan di menu Master Data → Rak"
+                  appendTo="body"
+                >
+                  <ng-template #item let-o><span class="opt-code">{{ o.code }}</span> {{ o.name }}</ng-template>
+                </p-select>
               </div>
               <div class="field">
                 <label for="minStock">Stok minimal ({{ baseUnitName() }})</label>

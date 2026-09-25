@@ -6,7 +6,7 @@ export type ProductInput = { id: number | null,
 /**
  * Kosong → dibuat otomatis (OBT00001).
  */
-code: string | null, name: string, genericName: string | null, manufacturer: string | null, categoryId: number | null, drugClass: DrugClass, isOwa: boolean, baseUnitId: number, minStockBase: number, rackLocation: string | null, 
+code: string | null, name: string, genericName: string | null, manufacturerId: number | null, categoryId: number | null, drugClass: DrugClass, isOwa: boolean, baseUnitId: number, minStockBase: number, rackId: number | null, 
 /**
  * Semua satuan aktif. Satuan lama yang tidak dikirim akan dinonaktifkan.
  */

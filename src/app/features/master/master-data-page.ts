@@ -1,14 +1,15 @@
 import { Component } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
-/** Kerangka menu Master: tab Obat & Kategori (supplier, dokter, pelanggan menyusul). */
+/** Menu Master Data: data pendukung yang dipilih saat tambah/ubah obat. */
 @Component({
-  selector: 'app-master-page',
+  selector: 'app-master-data-page',
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
     <nav class="tabs">
-      <a routerLink="obat" routerLinkActive="active">Obat</a>
       <a routerLink="kategori" routerLinkActive="active">Kategori</a>
+      <a routerLink="rak" routerLinkActive="active">Rak</a>
+      <a routerLink="pabrik" routerLinkActive="active">Pabrik</a>
     </nav>
     <router-outlet />
   `,
@@ -35,4 +36,4 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
     }
   `,
 })
-export class MasterPage {}
+export class MasterDataPage {}

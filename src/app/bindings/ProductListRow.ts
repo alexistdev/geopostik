@@ -5,4 +5,4 @@ export type ProductListRow = { id: number, code: string, name: string, genericNa
 /**
  * Total stok semua batch, dalam satuan terkecil.
  */
-stockBase: number, minStockBase: number, rackLocation: string | null, isActive: boolean, };
+stockBase: number, minStockBase: number, rackName: string | null, isActive: boolean, };

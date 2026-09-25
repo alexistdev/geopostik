@@ -52,3 +52,59 @@ textarea,
 .w-full {
   width: 100%;
 }
+
+// ─── Cetak label barcode (lihat shared/label-print.ts) ───────────────────────
+
+#print-area {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 8mm;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  body > *:not(#print-area) {
+    display: none !important;
+  }
+
+  #print-area {
+    display: block;
+    color: #000;
+  }
+
+  .label-title {
+    font-size: 10pt;
+    margin-bottom: 4mm;
+  }
+
+  .label-sheet {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4mm;
+  }
+
+  .label {
+    border: 1px dashed #999;
+    padding: 3mm;
+    text-align: center;
+    break-inside: avoid;
+
+    svg {
+      max-width: 100%;
+    }
+  }
+
+  .label-name {
+    font-size: 10pt;
+    font-weight: 600;
+    margin-bottom: 2mm;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}

@@ -2,7 +2,7 @@
 import type { DrugClass } from "./DrugClass";
 import type { ProductUnitDetail } from "./ProductUnitDetail";
 
-export type ProductDetail = { id: number, code: string, name: string, genericName: string | null, manufacturer: string | null, categoryId: number | null, drugClass: DrugClass, isOwa: boolean, baseUnitId: number, minStockBase: number, rackLocation: string | null, isActive: boolean, 
+export type ProductDetail = { id: number, code: string, name: string, genericName: string | null, manufacturerId: number | null, categoryId: number | null, drugClass: DrugClass, isOwa: boolean, baseUnitId: number, minStockBase: number, rackId: number | null, isActive: boolean, 
 /**
  * Sudah punya batch → satuan dasar & konversi satuan lama tidak bisa diubah.
  */

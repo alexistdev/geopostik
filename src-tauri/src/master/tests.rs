@@ -1,6 +1,7 @@
 use rusqlite::Connection;
 
 use super::model::*;
+use super::repo::NamedTable;
 use super::service::{self, PriceAccess};
 use crate::auth::{AccessSettings, Role, SessionUser, effective_permissions};
 use crate::db;
@@ -46,13 +47,13 @@ fn paracetamol() -> ProductInput {
         code: None,
         name: "Paracetamol 500 mg".into(),
         generic_name: Some("Paracetamol".into()),
-        manufacturer: Some("Kimia Farma".into()),
+        manufacturer_id: None,
         category_id: None,
         drug_class: DrugClass::Free,
         is_owa: false,
         base_unit_id: TABLET,
         min_stock_base: 100,
-        rack_location: Some("A1".into()),
+        rack_id: None,
         units: vec![
             unit(TABLET, 1, false, &[]),
             unit(STRIP, 10, true, &["8991234567890"]),
@@ -108,7 +109,6 @@ fn create_product_with_units_and_search() {
     };
     assert_eq!(search("para 500").total, 1);
     assert_eq!(search("parac").rows[0].sale_unit_name.as_deref(), Some("Strip"));
-    assert_eq!(search("kimia").total, 0, "pabrik tidak ikut dicari");
     assert_eq!(search("8991234567890").total, 1, "barcode persis");
     assert_eq!(search("amoxicillin").total, 0);
     assert_eq!(search("---").total, 0);
@@ -165,7 +165,7 @@ fn auto_price_follows_margin_chain() {
     let cat = service::save_category(
         &mut conn,
         &owner,
-        &CategoryInput { id: None, name: "Analgesik".into(), margin_bp: Some(5_000), is_active: true },
+        &CategoryInput { id: None, code: None, name: "Analgesik".into(), margin_bp: Some(5_000), is_active: true },
     )
     .unwrap();
     let mut input = paracetamol();
@@ -189,7 +189,7 @@ fn auto_price_follows_margin_chain() {
     service::save_category(
         &mut conn,
         &owner,
-        &CategoryInput { id: Some(cat.id), name: "Analgesik".into(), margin_bp: Some(1_000), is_active: true },
+        &CategoryInput { id: Some(cat.id), code: None, name: "Analgesik".into(), margin_bp: Some(1_000), is_active: true },
     )
     .unwrap();
     let p = service::get_product(&conn, p.id, PriceAccess::of(&owner)).unwrap();
@@ -331,14 +331,14 @@ fn category_margin_requires_price_permission() {
     let err = service::save_category(
         &mut conn,
         &ttk,
-        &CategoryInput { id: None, name: "Vitamin".into(), margin_bp: Some(3_000), is_active: true },
+        &CategoryInput { id: None, code: None, name: "Vitamin".into(), margin_bp: Some(3_000), is_active: true },
     );
     assert!(matches!(err, Err(AppError::Forbidden)));
 
     let cat = service::save_category(
         &mut conn,
         &ttk,
-        &CategoryInput { id: None, name: "Vitamin".into(), margin_bp: None, is_active: true },
+        &CategoryInput { id: None, code: None, name: "Vitamin".into(), margin_bp: None, is_active: true },
     )
     .unwrap();
     assert_eq!(cat.margin_bp, None);
@@ -346,7 +346,171 @@ fn category_margin_requires_price_permission() {
     let dup = service::save_category(
         &mut conn,
         &ttk,
-        &CategoryInput { id: None, name: "vitamin".into(), margin_bp: None, is_active: true },
+        &CategoryInput { id: None, code: None, name: "vitamin".into(), margin_bp: None, is_active: true },
     );
     assert!(matches!(dup, Err(AppError::Conflict(_))));
+}
+
+#[test]
+fn racks_and_manufacturers_are_master_data() {
+    let mut conn = setup();
+    let owner = user(&[Role::Owner]);
+    let named = |id: Option<i64>, name: &str, active: bool| NamedItemInput { id, code: None, name: name.into(), is_active: active };
+
+    let rack = service::save_named(&conn, NamedTable::Racks, &named(None, "A1", true)).unwrap();
+    let pabrik = service::save_named(&conn, NamedTable::Manufacturers, &named(None, "Kimia Farma", true)).unwrap();
+
+    // Nama unik tanpa membedakan huruf besar/kecil, per tabel.
+    let dup = service::save_named(&conn, NamedTable::Racks, &named(None, "a1", true));
+    assert!(matches!(dup, Err(AppError::Conflict(_))));
+    service::save_named(&conn, NamedTable::Manufacturers, &named(None, "A1", true)).unwrap();
+
+    let mut input = paracetamol();
+    input.rack_id = Some(rack.id);
+    input.manufacturer_id = Some(pabrik.id);
+    let p = service::save_product(&mut conn, &owner, &input).unwrap().product;
+    assert_eq!((p.rack_id, p.manufacturer_id), (Some(rack.id), Some(pabrik.id)));
+
+    let rows = service::list_products(&conn, &ProductListQuery { limit: 10, ..Default::default() }).unwrap().rows;
+    assert_eq!(rows[0].rack_name.as_deref(), Some("A1"));
+
+    // Ganti nama rak ikut tampil di daftar obat.
+    service::save_named(&conn, NamedTable::Racks, &named(Some(rack.id), "A1-Atas", true)).unwrap();
+    let rows = service::list_products(&conn, &ProductListQuery { limit: 10, ..Default::default() }).unwrap().rows;
+    assert_eq!(rows[0].rack_name.as_deref(), Some("A1-Atas"));
+
+    let mut bad = paracetamol();
+    bad.name = "Obat lain".into();
+    bad.units[1].barcodes.clear();
+    bad.rack_id = Some(999);
+    assert!(matches!(service::save_product(&mut conn, &owner, &bad), Err(AppError::Validation(_))));
+
+    let missing = service::save_named(&conn, NamedTable::Racks, &named(Some(999), "X", true));
+    assert!(matches!(missing, Err(AppError::NotFound(_))));
+}
+
+#[test]
+fn master_codes_are_generated_normalized_and_unique() {
+    let mut conn = setup();
+    let owner = user(&[Role::Owner]);
+    let named = |id: Option<i64>, code: Option<&str>, name: &str| NamedItemInput {
+        id,
+        code: code.map(Into::into),
+        name: name.into(),
+        is_active: true,
+    };
+
+    // Kode otomatis per jenis master.
+    let rack = service::save_named(&conn, NamedTable::Racks, &named(None, None, "A1")).unwrap();
+    assert_eq!(rack.code, "RAK0001");
+    let pabrik = service::save_named(&conn, NamedTable::Manufacturers, &named(None, None, "Kalbe")).unwrap();
+    assert_eq!(pabrik.code, "PBR0001");
+    let cat = service::save_category(
+        &mut conn,
+        &owner,
+        &CategoryInput { id: None, code: None, name: "Vitamin".into(), margin_bp: None, is_active: true },
+    )
+    .unwrap();
+    assert_eq!(cat.code, "KTG0001");
+
+    // Kode manual dinormalisasi ke huruf besar.
+    let kulkas = service::save_named(&conn, NamedTable::Racks, &named(None, Some(" kulkas-1 "), "Kulkas")).unwrap();
+    assert_eq!(kulkas.code, "KULKAS-1");
+
+    // Karakter yang tidak aman untuk barcode ditolak.
+    for bad in ["A 1", "RAK/1", "RÄK1", "ABCDEFGHIJKLMNOPQRSTU"] {
+        let err = service::save_named(&conn, NamedTable::Racks, &named(None, Some(bad), &format!("Rak {bad}")));
+        assert!(matches!(err, Err(AppError::Validation(_))), "{bad}");
+    }
+
+    // Kode unik per jenis master (tanpa beda huruf besar/kecil), boleh sama di jenis lain.
+    let dup = service::save_named(&conn, NamedTable::Racks, &named(None, Some("rak0001"), "B1"));
+    assert!(matches!(dup, Err(AppError::Conflict(_))));
+    service::save_named(&conn, NamedTable::Manufacturers, &named(None, Some("RAK0001"), "Pabrik X")).unwrap();
+
+    // Kode dikosongkan saat ubah → kode lama dipertahankan.
+    let renamed = service::save_named(&conn, NamedTable::Racks, &named(Some(rack.id), None, "A1 Atas")).unwrap();
+    assert_eq!(renamed.code, "RAK0001");
+    let listed = service::list_named(&conn, NamedTable::Racks).unwrap();
+    assert!(listed.iter().any(|r| r.code == "RAK0001" && r.name == "A1 Atas"));
+
+    // Kode otomatis melewati kode yang sudah dipakai manual.
+    service::save_named(&conn, NamedTable::Racks, &named(None, Some("RAK0004"), "C1")).unwrap();
+    let next = service::save_named(&conn, NamedTable::Racks, &named(None, None, "D1")).unwrap();
+    assert_eq!(next.code, "RAK0005");
+}
+
+#[test]
+fn master_data_is_soft_deleted_only_when_unused() {
+    let mut conn = setup();
+    let owner = user(&[Role::Owner]);
+    let named = |name: &str| NamedItemInput { id: None, code: None, name: name.into(), is_active: true };
+
+    let used_rack = service::save_named(&conn, NamedTable::Racks, &named("A1")).unwrap();
+    let free_rack = service::save_named(&conn, NamedTable::Racks, &named("B1")).unwrap();
+    let cat = service::save_category(
+        &mut conn,
+        &owner,
+        &CategoryInput { id: None, code: None, name: "Vitamin".into(), margin_bp: None, is_active: true },
+    )
+    .unwrap();
+    let mut input = paracetamol();
+    input.rack_id = Some(used_rack.id);
+    input.category_id = Some(cat.id);
+    service::save_product(&mut conn, &owner, &input).unwrap();
+
+    // Nonaktif / aktif.
+    service::set_master_active(&conn, &owner, MasterKind::Rack, used_rack.id, false).unwrap();
+    let racks = service::list_named(&conn, NamedTable::Racks).unwrap();
+    assert!(!racks.iter().find(|r| r.id == used_rack.id).unwrap().is_active);
+    service::set_master_active(&conn, &owner, MasterKind::Rack, used_rack.id, true).unwrap();
+
+    // Yang dipakai obat tidak bisa dihapus.
+    let err = service::delete_master(&mut conn, &owner, MasterKind::Rack, used_rack.id).unwrap_err();
+    assert!(matches!(err, AppError::Conflict(m) if m.contains("1 obat")));
+    let err = service::delete_master(&mut conn, &owner, MasterKind::Category, cat.id).unwrap_err();
+    assert!(matches!(err, AppError::Conflict(_)));
+
+    // Yang belum dipakai bisa dihapus: soft delete, tersembunyi tapi tetap ada di database.
+    service::delete_master(&mut conn, &owner, MasterKind::Rack, free_rack.id).unwrap();
+    let racks = service::list_named(&conn, NamedTable::Racks).unwrap();
+    assert_eq!(racks.len(), 1);
+    let (deleted_at, deleted_by): (Option<String>, Option<i64>) = conn
+        .query_row("SELECT deleted_at, deleted_by FROM racks WHERE id = ?1", [free_rack.id], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })
+        .unwrap();
+    assert!(deleted_at.is_some());
+    assert_eq!(deleted_by, Some(owner.id));
+
+    // Data terhapus tidak bisa diubah, diaktifkan, atau dihapus lagi.
+    let edit = service::save_named(
+        &conn,
+        NamedTable::Racks,
+        &NamedItemInput { id: Some(free_rack.id), code: None, name: "B1".into(), is_active: true },
+    );
+    assert!(matches!(edit, Err(AppError::NotFound(_))));
+    let activate = service::set_master_active(&conn, &owner, MasterKind::Rack, free_rack.id, true);
+    assert!(matches!(activate, Err(AppError::NotFound(_))));
+    let again = service::delete_master(&mut conn, &owner, MasterKind::Rack, free_rack.id);
+    assert!(matches!(again, Err(AppError::NotFound(_))));
+
+    // Nama dan kode data terhapus boleh dipakai lagi; kode otomatis tidak memakai ulang kodenya.
+    let reused = service::save_named(
+        &conn,
+        NamedTable::Racks,
+        &NamedItemInput { id: None, code: Some(free_rack.code.clone()), name: "B1".into(), is_active: true },
+    )
+    .unwrap();
+    assert_eq!(reused.code, free_rack.code);
+    let auto = service::save_named(&conn, NamedTable::Racks, &named("C1")).unwrap();
+    assert_ne!(auto.code, free_rack.code);
+
+    // Hapus permanen selalu ditolak oleh database.
+    assert!(conn.execute("DELETE FROM racks WHERE id = ?1", [free_rack.id]).is_err());
+
+    let missing = service::delete_master(&mut conn, &owner, MasterKind::Manufacturer, 999);
+    assert!(matches!(missing, Err(AppError::NotFound(_))));
+    let missing = service::set_master_active(&conn, &owner, MasterKind::Rack, 999, false);
+    assert!(matches!(missing, Err(AppError::NotFound(_))));
 }
