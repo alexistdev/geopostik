@@ -1,3 +1,4 @@
+<section class="data-card">
 <div class="toolbar">
   <p-iconfield class="search">
     <p-inputicon class="pi pi-search" />
@@ -86,23 +87,22 @@
   [currentPageReportTemplate]="pageReport"
   [loading]="loading()"
   [rowHover]="true"
-  size="small"
   [scrollable]="true"
   scrollHeight="flex"
-  styleClass="products"
+  styleClass="data-table compact"
 >
   <ng-template #header>
     <tr>
-      <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
-      <th style="width: 7rem">Kode</th>
-      <th>Nama</th>
-      <th style="width: 10rem">Kategori</th>
-      <th style="width: 9rem">Golongan</th>
-      <th style="width: 10rem" class="num">Harga jual</th>
-      <th style="width: 9rem" class="num">Stok</th>
-      <th style="width: 5rem">Rak</th>
+      <th style="width: 3.25rem"><p-tableHeaderCheckbox /></th>
+      <th style="width: 7.5rem">Kode</th>
+      <th style="min-width: 14rem">Nama</th>
+      <th style="width: 8.5rem">Kategori</th>
+      <th style="width: 8rem">Golongan</th>
+      <th style="width: 9rem" class="num">Harga jual</th>
+      <th style="width: 7.5rem" class="num">Stok</th>
+      <th style="width: 6.5rem">Rak</th>
       @if (canEdit) {
-        <th style="width: 8.5rem"></th>
+        <th style="width: 7.5rem"></th>
       }
     </tr>
   </ng-template>
@@ -110,31 +110,61 @@
   <ng-template #body let-row>
     <tr [class.inactive-row]="!row.isActive">
       <td><p-tableCheckbox [value]="row" /></td>
-      <td>{{ row.code }}</td>
+      <td><span class="cell-code">{{ row.code }}</span></td>
       <td>
-        <div class="name">{{ row.name }}</div>
-        @if (row.genericName) {
-          <small>{{ row.genericName }}</small>
+        <div class="cell-name">
+          <span class="avatar">{{ row.name.charAt(0) }}</span>
+          <div class="name-text">
+            <span>
+              {{ row.name }}
+              @if (!row.isActive) {
+                <span class="status">Nonaktif</span>
+              }
+            </span>
+            @if (row.genericName) {
+              <small>{{ row.genericName }}</small>
+            }
+          </div>
+        </div>
+      </td>
+      <td>
+        @if (row.categoryName) {
+          {{ row.categoryName }}
+        } @else {
+          <span class="muted">–</span>
         }
       </td>
-      <td>{{ row.categoryName ?? '–' }}</td>
       <td>
-        <p-tag [value]="drugClassInfo(row.drugClass).label" [severity]="drugClassInfo(row.drugClass).severity" />
-        @if (row.isOwa) {
-          <p-tag value="OWA" severity="secondary" class="owa" />
-        }
+        <div class="tags">
+          <p-tag [value]="drugClassInfo(row.drugClass).label" [severity]="drugClassInfo(row.drugClass).severity" [rounded]="true" />
+          @if (row.isOwa) {
+            <p-tag value="OWA" severity="secondary" [rounded]="true" />
+          }
+        </div>
       </td>
       <td class="num">
         @if (row.salePrice) {
-          {{ row.salePrice | rupiah }} <small>/ {{ row.saleUnitName }}</small>
+          <span class="price">{{ row.salePrice | rupiah }}</span>
+          <small>/ {{ row.saleUnitName }}</small>
         } @else {
-          <span class="missing">Belum ada harga</span>
+          <span class="missing"><i class="pi pi-exclamation-circle"></i>Belum ada harga</span>
         }
       </td>
-      <td class="num" [class.low]="isLowStock(row)">
-        {{ row.stockBase }} <small>{{ row.baseUnitName }}</small>
+      <td class="num">
+        <span class="stock" [class.low]="isLowStock(row)" [class.empty-stock]="row.stockBase <= 0">
+          @if (isLowStock(row)) {
+            <i class="pi pi-arrow-down"></i>
+          }
+          {{ row.stockBase }} <small>{{ row.baseUnitName }}</small>
+        </span>
       </td>
-      <td>{{ row.rackName ?? '' }}</td>
+      <td>
+        @if (row.rackName) {
+          <span class="rack"><i class="pi pi-map-marker"></i>{{ row.rackName }}</span>
+        } @else {
+          <span class="muted">–</span>
+        }
+      </td>
       @if (canEdit) {
         <td class="actions">
           <p-button
@@ -175,11 +205,15 @@
   </ng-template>
 
   <ng-template #emptymessage>
-    <tr>
-      <td colspan="9" class="empty">Tidak ada obat yang cocok.</td>
+    <tr class="empty-row">
+      <td colspan="9">
+        <i class="pi pi-inbox empty-icon"></i>
+        <div>Tidak ada obat yang cocok.</div>
+      </td>
     </tr>
   </ng-template>
 </p-table>
+</section>
 
 @if (editing() !== undefined) {
   <app-product-dialog [productId]="editing() ?? null" (closed)="closeDialog($event)" />

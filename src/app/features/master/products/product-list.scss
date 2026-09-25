@@ -4,18 +4,15 @@
   height: calc(100vh - 150px);
 }
 
+// Kartu mengisi tinggi halaman; tabel menggulir di dalamnya (scrollHeight="flex").
+.data-card {
+  flex: 1;
+  min-height: 0;
+}
+
 .toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-
-  .search {
-    width: 360px;
-
-    input {
-      width: 100%;
-    }
+  .search input {
+    width: 340px;
   }
 
   .inactive {
@@ -48,17 +45,36 @@ p-table {
   min-height: 0;
 }
 
+// Tombol aksi redup, tegas saat baris disorot (sama seperti Master Data).
 .actions {
   white-space: nowrap;
   text-align: right;
+
+  p-button {
+    opacity: 0.55;
+    transition: opacity 0.12s;
+  }
 }
 
-.inactive-row td {
-  opacity: 0.5;
+tr:hover .actions p-button,
+.actions:focus-within p-button {
+  opacity: 1;
 }
 
-.name {
-  font-weight: 600;
+.name-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+
+  .status {
+    margin-left: 0.375rem;
+    vertical-align: middle;
+  }
+
+  small {
+    font-weight: 400;
+  }
 }
 
 small {
@@ -67,24 +83,89 @@ small {
 
 .num {
   text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
-.low {
-  color: var(--p-red-600);
+.price {
   font-weight: 600;
 }
 
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+
+.stock,
+.price,
+.rack {
+  white-space: nowrap;
+}
+
+.stock {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+  background: var(--p-surface-100);
+
+  &.low {
+    color: var(--p-red-700);
+    background: var(--p-red-50);
+
+    small {
+      color: inherit;
+    }
+
+    i {
+      font-size: 0.7rem;
+    }
+  }
+
+  &.empty-stock:not(.low) {
+    color: var(--p-text-muted-color);
+  }
+}
+
 .missing {
-  color: var(--p-orange-600);
-  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--p-orange-700);
+  background: var(--p-orange-50);
 }
 
-.owa {
-  margin-left: 0.25rem;
+.rack {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 500;
+
+  i {
+    font-size: 0.75rem;
+    color: var(--p-primary-600);
+  }
 }
 
-.empty {
-  text-align: center;
-  padding: 2rem;
-  color: var(--p-text-muted-color);
+:host-context(.app-dark) {
+  .stock {
+    background: var(--p-surface-800);
+
+    &.low {
+      color: var(--p-red-300);
+      background: color-mix(in srgb, var(--p-red-500) 15%, transparent);
+    }
+  }
+
+  .missing {
+    color: var(--p-orange-300);
+    background: color-mix(in srgb, var(--p-orange-500) 15%, transparent);
+  }
 }

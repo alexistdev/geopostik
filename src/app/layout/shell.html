@@ -1,5 +1,37 @@
 <p-toast position="top-right" />
-<p-confirmdialog [style]="{ width: '440px' }" />
+<p-confirmdialog [style]="{ width: '420px' }" styleClass="confirm-dialog">
+  <ng-template #headless let-c let-onAccept="onAccept" let-onReject="onReject">
+    @let danger = c.acceptButtonProps?.severity === 'danger';
+    <div class="confirm" [class.danger]="danger">
+      <button type="button" class="confirm-close" aria-label="Tutup" (click)="onReject()"><i class="pi pi-times"></i></button>
+      <span class="confirm-icon"><i [class]="c.icon ?? 'pi pi-question-circle'"></i></span>
+      <h3 class="confirm-title">{{ c.header }}</h3>
+      <p class="confirm-message">{{ c.message }}</p>
+      @if (c.item; as item) {
+        <div class="confirm-item">
+          <span class="confirm-item-avatar">{{ item.name.charAt(0) }}</span>
+          <span class="confirm-item-name">{{ item.name }}</span>
+          @if (item.code) {
+            <span class="confirm-item-code">{{ item.code }}</span>
+          }
+        </div>
+      }
+      @if (c.note) {
+        <p class="confirm-note"><i class="pi pi-info-circle"></i>{{ c.note }}</p>
+      }
+      <div class="confirm-actions">
+        <p-button [label]="c.rejectLabel ?? 'Batal'" severity="secondary" [outlined]="true" (onClick)="onReject()" />
+        <p-button
+          [label]="c.acceptLabel ?? 'Ya'"
+          [icon]="c.acceptIcon ?? 'pi pi-check'"
+          [severity]="danger ? 'danger' : undefined"
+          [autofocus]="true"
+          (onClick)="onAccept()"
+        />
+      </div>
+    </div>
+  </ng-template>
+</p-confirmdialog>
 
 <aside class="sidebar">
   <div class="brand">

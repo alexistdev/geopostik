@@ -18,6 +18,7 @@ import type { ProductListRow } from '../../../bindings/ProductListRow';
 import { masterApi } from '../../../core/api/master.api';
 import { AuthService } from '../../../core/auth/auth.service';
 import { Notify } from '../../../core/ui/notify';
+import { confirmDelete } from '../../../shared/confirm';
 import { RupiahPipe } from '../../../shared/format';
 import { LabelPrint } from '../../../shared/label-print';
 import { DRUG_CLASSES, drugClassInfo } from '../../../shared/labels';
@@ -166,14 +167,11 @@ export class ProductList {
   }
 
   protected confirmDelete(row: ProductListRow): void {
-    this.confirm.confirm({
-      header: 'Hapus obat',
-      message: `Hapus obat "${row.name}" (${row.code})? Obat akan disembunyikan dari daftar dan pencarian, tetapi riwayatnya tetap tersimpan.`,
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Hapus',
-      rejectLabel: 'Batal',
-      acceptButtonProps: { severity: 'danger' },
-      rejectButtonProps: { severity: 'secondary', text: true },
+    confirmDelete(this.confirm, {
+      header: 'Hapus obat?',
+      message: 'Obat ini akan disembunyikan dari daftar dan pencarian.',
+      item: { name: row.name, code: row.code },
+      note: 'Riwayatnya tetap tersimpan.',
       accept: () => this.delete(row),
     });
   }
@@ -197,19 +195,29 @@ export class ProductList {
     if (!action || !rows.length) return;
     const n = rows.length;
     const label = BATCH_ACTIONS.find((a) => a.value === action)!.label;
+    const accept = () => this.executeBatch(action, rows, label);
+    const reject = () => (this.batchAction = null);
+    if (action === 'DELETE') {
+      confirmDelete(this.confirm, {
+        header: `Hapus ${n} obat?`,
+        message: 'Obat yang dicentang akan disembunyikan dari daftar dan pencarian.',
+        item: { name: `${n} obat dicentang` },
+        note: 'Obat yang masih punya stok dilewati. Riwayatnya tetap tersimpan.',
+        acceptLabel: `Hapus ${n} obat`,
+        accept,
+        reject,
+      });
+      return;
+    }
     this.confirm.confirm({
-      header: `${label} ${n} obat`,
-      message:
-        action === 'DELETE'
-          ? `Hapus ${n} obat yang dicentang? Obat akan disembunyikan dari daftar dan pencarian, tetapi riwayatnya tetap tersimpan. Obat yang masih punya stok dilewati.`
-          : `${label} ${n} obat yang dicentang?`,
-      icon: action === 'DELETE' ? 'pi pi-exclamation-triangle' : 'pi pi-question-circle',
+      header: `${label} ${n} obat?`,
+      message: `${label} ${n} obat yang dicentang?`,
+      icon: action === 'ACTIVATE' ? 'pi pi-check-circle' : 'pi pi-ban',
       acceptLabel: label,
       rejectLabel: 'Batal',
-      acceptButtonProps: { severity: action === 'DELETE' ? 'danger' : undefined },
-      rejectButtonProps: { severity: 'secondary', text: true },
-      accept: () => this.executeBatch(action, rows, label),
-      reject: () => (this.batchAction = null),
+      rejectButtonProps: { severity: 'secondary', outlined: true },
+      accept,
+      reject,
     });
   }
 

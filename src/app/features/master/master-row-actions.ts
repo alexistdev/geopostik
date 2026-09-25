@@ -6,6 +6,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import type { MasterKind } from '../../bindings/MasterKind';
 import { masterApi } from '../../core/api/master.api';
 import { Notify } from '../../core/ui/notify';
+import { confirmDelete } from '../../shared/confirm';
 
 export interface MasterRow {
   id: number;
@@ -72,14 +73,11 @@ export class MasterRowActions {
 
   protected confirmDelete(): void {
     const r = this.row();
-    this.confirm.confirm({
-      header: `Hapus ${this.label().toLowerCase()}`,
-      message: `Hapus ${this.label().toLowerCase()} "${r.name}" (${r.code})? Data akan disembunyikan dari daftar dan pilihan, tetapi riwayatnya tetap tersimpan.`,
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Hapus',
-      rejectLabel: 'Batal',
-      acceptButtonProps: { severity: 'danger' },
-      rejectButtonProps: { severity: 'secondary', text: true },
+    confirmDelete(this.confirm, {
+      header: `Hapus ${this.label().toLowerCase()}?`,
+      message: `${this.label()} ini akan disembunyikan dari daftar dan pilihan saat tambah/ubah obat.`,
+      item: { name: r.name, code: r.code },
+      note: 'Riwayatnya tetap tersimpan.',
       accept: () => this.delete(),
     });
   }
