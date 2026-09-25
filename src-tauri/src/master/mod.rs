@@ -2,7 +2,7 @@
 
 pub mod commands;
 mod model;
-mod pricing;
+pub(crate) mod pricing;
 mod repo;
 mod service;
 

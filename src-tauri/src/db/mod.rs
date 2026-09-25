@@ -6,6 +6,8 @@ use rusqlite_migration::{M, Migrations};
 
 use crate::error::{AppError, AppResult};
 
+mod seed;
+
 static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
     Migrations::new(vec![
         M::up(include_str!("../../migrations/001_init.sql")),
@@ -23,10 +25,16 @@ static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
 
 /// Membuka (atau membuat) database di `path`, lalu menjalankan migration.
 pub fn open(path: &Path) -> AppResult<Connection> {
+    let is_new = !path.exists();
     let conn = Connection::open(path)?;
     conn.pragma_update(None, "journal_mode", "WAL")?;
     conn.pragma_update(None, "synchronous", "NORMAL")?;
-    prepare(conn)
+    let mut conn = prepare(conn)?;
+    // Instalasi baru (atau install ulang setelah data dihapus) langsung berisi master data awal.
+    if is_new && seed::run(&mut conn)? {
+        tracing::info!("master data awal diisi");
+    }
+    Ok(conn)
 }
 
 /// Database in-memory untuk test.
