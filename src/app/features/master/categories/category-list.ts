@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
@@ -18,10 +18,12 @@ import { Barcode } from '../../../shared/barcode';
 import { bpToPercent, percentToBp } from '../../../shared/format';
 import { LabelPrint } from '../../../shared/label-print';
 import { MasterRowActions } from '../master-row-actions';
+import { MASTER_PAGE_SIZES, MasterTable, PAGE_REPORT } from '../master-table';
 
 interface CategoryForm {
   id: number | null;
-  code: string;
+  /** Hanya untuk ditampilkan; kode dibuat dan dijaga oleh sistem. */
+  code: string | null;
   name: string;
   marginPercent: number | null;
   isActive: boolean;
@@ -82,43 +84,33 @@ export class CategoryList {
   protected readonly canEditMargin = this.auth.can('PRICE_MANAGE');
   protected readonly showMargin = this.auth.can('PRICE_MANAGE') || this.auth.can('VIEW_COST');
 
-  protected readonly categories = signal<Category[]>([]);
-  protected readonly filter = signal('');
-  /** Cari nama, atau kode (termasuk hasil scan label barcode). */
-  protected readonly visibleCategories = computed(() => {
-    const q = this.filter().trim().toLowerCase();
-    return q
-      ? this.categories().filter((c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q))
-      : this.categories();
-  });
-  protected selected: Category[] = [];
+  protected readonly pageSizes = MASTER_PAGE_SIZES;
+  protected readonly pageReport = PAGE_REPORT;
+  protected readonly table = new MasterTable<Category>(masterApi.categoryPage, masterApi.categoryList, (e) =>
+    this.notify.error(e),
+  );
   protected readonly saving = signal(false);
   protected readonly bpToPercent = bpToPercent;
   protected form: CategoryForm | null = null;
 
   constructor() {
-    this.load();
-  }
-
-  protected async load(): Promise<void> {
-    try {
-      this.selected = [];
-      this.categories.set(await masterApi.categoryList());
-    } catch (e) {
-      this.notify.error(e);
-    }
+    this.table.load(0);
   }
 
   protected open(c?: Category): void {
     if (!this.canEdit) return;
     this.form = c
       ? { id: c.id, code: c.code, name: c.name, marginPercent: bpToPercent(c.marginBp), isActive: c.isActive }
-      : { id: null, code: '', name: '', marginPercent: null, isActive: true };
+      : { id: null, code: null, name: '', marginPercent: null, isActive: true };
   }
 
-  /** Cetak label barcode untuk baris yang dicentang, atau semua yang tampil bila tidak ada yang dicentang. */
-  protected printLabels(): void {
-    this.labels.print('Label Kategori', this.selected.length ? this.selected : this.visibleCategories());
+  /** Cetak label barcode untuk baris yang dicentang, atau semua yang cocok dengan pencarian. */
+  protected async printLabels(): Promise<void> {
+    try {
+      this.labels.print('Label Kategori', await this.table.itemsToPrint());
+    } catch (e) {
+      this.notify.error(e);
+    }
   }
 
   protected async save(): Promise<void> {
@@ -128,14 +120,13 @@ export class CategoryList {
     try {
       await masterApi.categorySave({
         id: f.id,
-        code: f.code.trim() || null,
         name: f.name,
         marginBp: percentToBp(f.marginPercent),
         isActive: f.isActive,
       });
       this.form = null;
       this.notify.success('Kategori tersimpan');
-      await this.load();
+      await this.table.load();
     } catch (e) {
       this.notify.error(e);
     } finally {

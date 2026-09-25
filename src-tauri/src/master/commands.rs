@@ -1,7 +1,7 @@
 use tauri::State;
 
 use super::model::{
-    Category, CategoryInput, MasterKind, NamedItem, NamedItemInput, ProductDetail, ProductInput, ProductListQuery, ProductListResult,
+    Category, CategoryInput, CategoryPage, MasterKind, MasterPageQuery, NamedItem, NamedItemInput, NamedItemPage, ProductDetail, ProductInput, ProductListQuery, ProductListResult,
     ProductPricesInput, ProductSaveResult, Unit,
 };
 use super::repo::NamedTable;
@@ -11,11 +11,18 @@ use crate::error::AppResult;
 use crate::state::AppState;
 
 // Membaca master (daftar obat, kategori, satuan) cukup login: kasir juga butuh untuk mencari obat.
+// `*_list` mengembalikan semua data (untuk dropdown), `*_page` per halaman (untuk menu Master Data).
 
 #[tauri::command]
 pub async fn category_list(state: State<'_, AppState>) -> AppResult<Vec<Category>> {
     let user = state.current_user()?;
     service::list_categories(&*state.db()?, PriceAccess::of(&user))
+}
+
+#[tauri::command]
+pub async fn category_page(state: State<'_, AppState>, query: MasterPageQuery) -> AppResult<CategoryPage> {
+    let user = state.current_user()?;
+    service::page_categories(&*state.db()?, PriceAccess::of(&user), &query)
 }
 
 #[tauri::command]
@@ -31,6 +38,12 @@ pub async fn rack_list(state: State<'_, AppState>) -> AppResult<Vec<NamedItem>> 
 }
 
 #[tauri::command]
+pub async fn rack_page(state: State<'_, AppState>, query: MasterPageQuery) -> AppResult<NamedItemPage> {
+    state.current_user()?;
+    service::page_named(&*state.db()?, NamedTable::Racks, &query)
+}
+
+#[tauri::command]
 pub async fn rack_save(state: State<'_, AppState>, input: NamedItemInput) -> AppResult<NamedItem> {
     state.require(Permission::ProductManage)?;
     service::save_named(&*state.db()?, NamedTable::Racks, &input)
@@ -40,6 +53,12 @@ pub async fn rack_save(state: State<'_, AppState>, input: NamedItemInput) -> App
 pub async fn manufacturer_list(state: State<'_, AppState>) -> AppResult<Vec<NamedItem>> {
     state.current_user()?;
     service::list_named(&*state.db()?, NamedTable::Manufacturers)
+}
+
+#[tauri::command]
+pub async fn manufacturer_page(state: State<'_, AppState>, query: MasterPageQuery) -> AppResult<NamedItemPage> {
+    state.current_user()?;
+    service::page_named(&*state.db()?, NamedTable::Manufacturers, &query)
 }
 
 #[tauri::command]

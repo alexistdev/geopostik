@@ -7,30 +7,51 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
   template: `
     <nav class="tabs">
-      <a routerLink="kategori" routerLinkActive="active">Kategori</a>
-      <a routerLink="rak" routerLinkActive="active">Rak</a>
-      <a routerLink="pabrik" routerLinkActive="active">Pabrik</a>
+      <a routerLink="kategori" routerLinkActive="active"><i class="pi pi-tags"></i>Kategori</a>
+      <a routerLink="rak" routerLinkActive="active"><i class="pi pi-th-large"></i>Rak</a>
+      <a routerLink="pabrik" routerLinkActive="active"><i class="pi pi-building"></i>Pabrik</a>
     </nav>
     <router-outlet />
   `,
   styles: `
+    // Tab model map: sisi kanan miring, aktif hijau tua, lainnya abu-abu.
     .tabs {
+      --tab-slant: 18px;
+      --tab-bg: #d9d9d9;
+      --tab-bg-hover: #cccccc;
+      --tab-active: var(--p-green-800);
+
       display: flex;
-      gap: 0.25rem;
+      align-items: flex-end;
+      gap: 4px;
       margin-bottom: 1rem;
-      border-bottom: 1px solid var(--p-surface-200);
+      border-bottom: 1px solid var(--tab-bg);
 
       a {
-        padding: 0.6rem 1rem;
-        color: var(--p-text-muted-color);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.55rem calc(1.25rem + var(--tab-slant)) 0.55rem 1.25rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--tab-active);
+        background: var(--tab-bg);
+        border-radius: 6px 0 0 0;
         text-decoration: none;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -1px;
+        clip-path: polygon(0 0, calc(100% - var(--tab-slant)) 0, 100% 100%, 0 100%);
+        transition: background-color 0.15s;
+
+        i {
+          font-size: 0.85rem;
+        }
+
+        &:hover:not(.active) {
+          background: var(--tab-bg-hover);
+        }
 
         &.active {
-          color: var(--p-primary-700);
-          border-bottom-color: var(--p-primary-600);
-          font-weight: 600;
+          color: #fff;
+          background: var(--tab-active);
         }
       }
     }

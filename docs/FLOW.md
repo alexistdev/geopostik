@@ -149,7 +149,9 @@ Data per obat:
 - stok minimal (untuk peringatan) dan rak
 
 Master pendukung di menu **Master Data**: kategori, rak, pabrik (dipilih lewat dropdown saat
-tambah/ubah obat). Setiap data punya **kode** yang bisa dicetak sebagai label barcode (misal
+tambah/ubah obat). Semua daftar master (termasuk Obat) dipaginasi di server (25/50/100 baris per
+halaman) dengan pencarian nama/kode. Setiap data punya **kode yang dibuat otomatis oleh sistem** (tidak bisa diisi
+atau diubah manusia) dan bisa dicetak sebagai label barcode (misal
 ditempel di rak) dan di-scan untuk mencari atau memilihnya. Setiap baris punya tombol **Edit**,
 **Nonaktifkan/Aktifkan**, dan **Hapus**. Master data **tidak pernah dihapus permanen**: hapus
 berarti soft delete (disembunyikan, riwayat tetap tersimpan). Hapus hanya bisa bila data belum

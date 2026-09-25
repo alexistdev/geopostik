@@ -1,3 +1,4 @@
+@let t = table();
 <div class="toolbar">
   <p-iconfield>
     <p-inputicon class="pi pi-search" />
@@ -5,18 +6,18 @@
       pInputText
       type="search"
       [placeholder]="'Cari atau scan kode ' + config().label.toLowerCase()"
-      [ngModel]="filter()"
-      (ngModelChange)="filter.set($event)"
+      [ngModel]="t.search()"
+      (ngModelChange)="t.searchChanged($event)"
     />
   </p-iconfield>
   <span class="muted">{{ config().hint }}</span>
   <span class="spacer"></span>
   <p-button
-    [label]="selected.length ? 'Cetak label (' + selected.length + ')' : 'Cetak semua label'"
+    [label]="t.selected.length ? 'Cetak label (' + t.selected.length + ')' : 'Cetak semua label'"
     icon="pi pi-print"
     severity="secondary"
     [outlined]="true"
-    [disabled]="!visibleItems().length"
+    [disabled]="!t.total()"
     (onClick)="printLabels()"
   />
   @if (canEdit) {
@@ -24,7 +25,24 @@
   }
 </div>
 
-<p-table [value]="visibleItems()" [(selection)]="selected" dataKey="id" size="small" [rowHover]="true">
+<p-table
+  [value]="t.rows()"
+  [(selection)]="t.selected"
+  dataKey="id"
+  [lazy]="true"
+  [lazyLoadOnInit]="false"
+  (onLazyLoad)="t.pageChanged($event.first ?? 0, $event.rows ?? t.pageSize())"
+  [paginator]="true"
+  [first]="t.first()"
+  [rows]="t.pageSize()"
+  [rowsPerPageOptions]="pageSizes"
+  [totalRecords]="t.total()"
+  [showCurrentPageReport]="true"
+  [currentPageReportTemplate]="pageReport"
+  [loading]="t.loading()"
+  size="small"
+  [rowHover]="true"
+>
   <ng-template #header>
     <tr>
       <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
@@ -46,14 +64,16 @@
       </td>
       @if (canEdit) {
         <td>
-          <app-master-row-actions [kind]="config().kind" [label]="config().label" [row]="item" (edit)="open(item)" (changed)="load()" />
+          <app-master-row-actions [kind]="config().kind" [label]="config().label" [row]="item" (edit)="open(item)" (changed)="t.load()" />
         </td>
       }
     </tr>
   </ng-template>
   <ng-template #emptymessage>
     <tr>
-      <td colspan="5" class="muted">Belum ada data {{ config().label.toLowerCase() }}.</td>
+      <td colspan="5" class="muted">
+        {{ t.search() ? 'Tidak ada ' + config().label.toLowerCase() + ' yang cocok.' : 'Belum ada data ' + config().label.toLowerCase() + '.' }}
+      </td>
     </tr>
   </ng-template>
 </p-table>
@@ -71,13 +91,13 @@
       <input pInputText id="namedName" [(ngModel)]="f.name" [placeholder]="config().placeholder" autofocus (keydown.enter)="save()" />
     </div>
     <div class="field">
-      <label for="namedCode">Kode</label>
-      <input pInputText id="namedCode" class="code" [(ngModel)]="f.code" placeholder="Otomatis" maxlength="20" (keydown.enter)="save()" />
-      <small>Huruf, angka, dan tanda hubung. Dicetak sebagai label barcode.</small>
+      <label>Kode</label>
+      @if (f.code) {
+        <div class="preview"><app-barcode [value]="f.code" /></div>
+      } @else {
+        <small>Dibuat otomatis oleh sistem saat disimpan, lalu bisa dicetak sebagai label barcode.</small>
+      }
     </div>
-    @if (f.code.trim()) {
-      <div class="preview"><app-barcode [value]="f.code.trim().toUpperCase()" /></div>
-    }
     <label class="check">
       <p-checkbox [(ngModel)]="f.isActive" [binary]="true" />
       Aktif (muncul sebagai pilihan saat tambah obat)

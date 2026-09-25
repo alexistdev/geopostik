@@ -3,4 +3,8 @@
 /**
  * Master sederhana yang hanya berisi nama: rak dan pabrik.
  */
-export type NamedItem = { id: number, code: string, name: string, isActive: boolean, };
+export type NamedItem = { id: number, 
+/**
+ * Dibuat otomatis oleh sistem (RAK0001 / PBR0001), tidak bisa diubah.
+ */
+code: string, name: string, isActive: boolean, };

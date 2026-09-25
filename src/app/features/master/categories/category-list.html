@@ -1,16 +1,22 @@
 <div class="toolbar">
   <p-iconfield>
     <p-inputicon class="pi pi-search" />
-    <input pInputText type="search" placeholder="Cari atau scan kode kategori" [ngModel]="filter()" (ngModelChange)="filter.set($event)" />
+    <input
+      pInputText
+      type="search"
+      placeholder="Cari atau scan kode kategori"
+      [ngModel]="table.search()"
+      (ngModelChange)="table.searchChanged($event)"
+    />
   </p-iconfield>
   <span class="muted">Margin kategori dipakai untuk harga otomatis obat yang tidak punya margin sendiri.</span>
   <span class="spacer"></span>
   <p-button
-    [label]="selected.length ? 'Cetak label (' + selected.length + ')' : 'Cetak semua label'"
+    [label]="table.selected.length ? 'Cetak label (' + table.selected.length + ')' : 'Cetak semua label'"
     icon="pi pi-print"
     severity="secondary"
     [outlined]="true"
-    [disabled]="!visibleCategories().length"
+    [disabled]="!table.total()"
     (onClick)="printLabels()"
   />
   @if (canEdit) {
@@ -18,7 +24,24 @@
   }
 </div>
 
-<p-table [value]="visibleCategories()" [(selection)]="selected" dataKey="id" size="small" [rowHover]="true">
+<p-table
+  [value]="table.rows()"
+  [(selection)]="table.selected"
+  dataKey="id"
+  [lazy]="true"
+  [lazyLoadOnInit]="false"
+  (onLazyLoad)="table.pageChanged($event.first ?? 0, $event.rows ?? table.pageSize())"
+  [paginator]="true"
+  [first]="table.first()"
+  [rows]="table.pageSize()"
+  [rowsPerPageOptions]="pageSizes"
+  [totalRecords]="table.total()"
+  [showCurrentPageReport]="true"
+  [currentPageReportTemplate]="pageReport"
+  [loading]="table.loading()"
+  size="small"
+  [rowHover]="true"
+>
   <ng-template #header>
     <tr>
       <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
@@ -52,14 +75,14 @@
       </td>
       @if (canEdit) {
         <td>
-          <app-master-row-actions kind="CATEGORY" label="Kategori" [row]="c" (edit)="open(c)" (changed)="load()" />
+          <app-master-row-actions kind="CATEGORY" label="Kategori" [row]="c" (edit)="open(c)" (changed)="table.load()" />
         </td>
       }
     </tr>
   </ng-template>
   <ng-template #emptymessage>
     <tr>
-      <td colspan="6" class="muted">Belum ada kategori.</td>
+      <td colspan="6" class="muted">{{ table.search() ? 'Tidak ada kategori yang cocok.' : 'Belum ada kategori.' }}</td>
     </tr>
   </ng-template>
 </p-table>
@@ -77,13 +100,13 @@
       <input pInputText id="catName" [(ngModel)]="f.name" autofocus (keydown.enter)="save()" />
     </div>
     <div class="field">
-      <label for="catCode">Kode</label>
-      <input pInputText id="catCode" class="code" [(ngModel)]="f.code" placeholder="Otomatis" maxlength="20" (keydown.enter)="save()" />
-      <small>Huruf, angka, dan tanda hubung. Dicetak sebagai label barcode.</small>
+      <label>Kode</label>
+      @if (f.code) {
+        <div class="preview"><app-barcode [value]="f.code" /></div>
+      } @else {
+        <small>Dibuat otomatis oleh sistem saat disimpan, lalu bisa dicetak sebagai label barcode.</small>
+      }
     </div>
-    @if (f.code.trim()) {
-      <div class="preview"><app-barcode [value]="f.code.trim().toUpperCase()" /></div>
-    }
     @if (canEditMargin) {
       <div class="field">
         <label for="catMargin">Margin (%)</label>

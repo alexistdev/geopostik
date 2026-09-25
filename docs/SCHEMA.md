@@ -86,7 +86,7 @@ Penomoran dokumen per hari/bulan, misal `PJ-260925-0001`.
 | Kolom | Tipe | Keterangan |
 |---|---|---|
 | id | INTEGER PK | |
-| code | TEXT UNIQUE | kode/label barcode, otomatis `KTG0001` |
+| code | TEXT UNIQUE | kode/label barcode, dibuat sistem `KTG0001`, tidak bisa diubah |
 | name | TEXT UNIQUE | |
 | margin_bp | INTEGER NULL | margin default kategori; NULL = pakai margin global |
 
@@ -170,11 +170,12 @@ punya `deleted_at` dan `deleted_by`. Nama dan kode unik hanya di antara data yan
 (index unik parsial), sehingga boleh dipakai lagi. Hapus ditolak bila data masih dipakai obat.
 Master baru (supplier, dokter, pelanggan, dst.) mengikuti pola yang sama.
 
-**Kode master** (`categories.code`, `racks.code`, `manufacturers.code`, migration `003_master_codes.sql`):
-huruf besar, angka, dan tanda hubung, maksimal 20 karakter, unik per tabel. Bila dikosongkan,
-dibuat otomatis `KTG0001` / `RAK0001` / `PBR0001`; kode otomatis tidak memakai ulang kode milik
-data yang sudah dihapus. Dicetak sebagai label barcode Code 128 dan
-bisa di-scan untuk mencari atau memilih data (misal scan label rak saat mengisi form obat).
+**Kode master** (`categories.code`, `racks.code`, `manufacturers.code`, migration `003`/`005`):
+**selalu dibuat otomatis oleh sistem** (`KTG0001` / `RAK0001` / `PBR0001`), tidak pernah diisi
+manusia, dan **tidak bisa diubah** setelah tersimpan (trigger menolak `UPDATE` kode). Kode
+otomatis tidak memakai ulang kode milik data yang sudah dihapus. Dicetak sebagai label barcode
+Code 128 dan bisa di-scan untuk mencari atau memilih data (misal scan label rak saat mengisi
+form obat).
 
 ### `suppliers`, `doctors`, `customers`
 | Tabel | Kolom utama |

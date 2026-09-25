@@ -4,7 +4,8 @@ use rusqlite::{Connection, TransactionBehavior};
 use serde_json::json;
 
 use super::model::{
-    Category, CategoryInput, DrugClass, MasterKind, NamedItem, NamedItemInput, PriceMode, ProductDetail, ProductInput, ProductListQuery,
+    Category, CategoryInput, CategoryPage, DrugClass, MasterKind, MasterPageQuery, NamedItem, NamedItemInput,
+    NamedItemPage, PriceMode, ProductDetail, ProductInput, ProductListQuery,
     ProductListResult, ProductPricesInput, ProductSaveResult, ProductUnitDetail, ProductUnitInput, Unit,
 };
 use super::pricing::{auto_price, unit_cost};
@@ -15,7 +16,6 @@ use crate::error::{AppError, AppResult};
 use crate::settings::{self, PriceSettings};
 
 const MAX_MARGIN_BP: i64 = 100_000; // 1000%
-const MAX_CODE_LEN: usize = 20;
 
 /// Apa saja yang boleh dilihat/diubah user terkait harga.
 #[derive(Debug, Clone, Copy)]
@@ -47,6 +47,14 @@ pub fn list_categories(conn: &Connection, access: PriceAccess) -> AppResult<Vec<
     Ok(cats)
 }
 
+pub fn page_categories(conn: &Connection, access: PriceAccess, query: &MasterPageQuery) -> AppResult<CategoryPage> {
+    let (mut rows, total) = repo::page_categories(conn, query)?;
+    if !access.view_margin() {
+        rows.iter_mut().for_each(|c| c.margin_bp = None);
+    }
+    Ok(CategoryPage { rows, total })
+}
+
 pub fn save_category(conn: &mut Connection, user: &SessionUser, input: &CategoryInput) -> AppResult<Category> {
     let access = PriceAccess::of(user);
     let name = required(&input.name, "Nama kategori")?;
@@ -56,7 +64,6 @@ pub fn save_category(conn: &mut Connection, user: &SessionUser, input: &Category
     if repo::category_name_taken(&tx, name, input.id)? {
         return Err(AppError::Conflict(format!("Kategori \"{name}\" sudah ada")));
     }
-    let code = resolve_code(&tx, CodedTable::Categories, input.code.as_deref(), input.id)?;
 
     let (id, margin_changed) = match input.id {
         Some(id) => {
@@ -64,13 +71,14 @@ pub fn save_category(conn: &mut Connection, user: &SessionUser, input: &Category
                 .ok_or_else(|| AppError::NotFound("Kategori tidak ditemukan".into()))?;
             // User tanpa hak harga tidak melihat margin, jadi margin lama dipertahankan.
             let margin = if access.manage_price { input.margin_bp } else { old };
-            repo::update_category(&tx, id, &code, name, margin, input.is_active)?;
+            repo::update_category(&tx, id, name, margin, input.is_active)?;
             (id, margin != old)
         }
         None => {
             if input.margin_bp.is_some() && !access.manage_price {
                 return Err(AppError::Forbidden);
             }
+            let code = repo::next_code(&tx, CodedTable::Categories)?;
             (repo::insert_category(&tx, &code, name, input.margin_bp, input.is_active)?, false)
         }
     };
@@ -104,6 +112,11 @@ pub fn list_named(conn: &Connection, table: NamedTable) -> AppResult<Vec<NamedIt
     repo::list_named(conn, table)
 }
 
+pub fn page_named(conn: &Connection, table: NamedTable, query: &MasterPageQuery) -> AppResult<NamedItemPage> {
+    let (rows, total) = repo::page_named(conn, table, query)?;
+    Ok(NamedItemPage { rows, total })
+}
+
 /// Simpan rak atau pabrik.
 pub fn save_named(conn: &Connection, table: NamedTable, input: &NamedItemInput) -> AppResult<NamedItem> {
     let label = match table {
@@ -114,15 +127,17 @@ pub fn save_named(conn: &Connection, table: NamedTable, input: &NamedItemInput) 
     if repo::named_name_taken(conn, table, name, input.id)? {
         return Err(AppError::Conflict(format!("Nama {label} \"{name}\" sudah ada")));
     }
-    let code = resolve_code(conn, table.coded(), input.code.as_deref(), input.id)?;
-    let id = match input.id {
+    let (id, code) = match input.id {
         Some(id) => {
-            if repo::update_named(conn, table, id, &code, name, input.is_active)? == 0 {
-                return Err(AppError::NotFound(format!("Data {label} tidak ditemukan")));
-            }
-            id
+            let code = repo::code_of(conn, table.coded(), id)?
+                .ok_or_else(|| AppError::NotFound(format!("Data {label} tidak ditemukan")))?;
+            repo::update_named(conn, table, id, name, input.is_active)?;
+            (id, code)
         }
-        None => repo::insert_named(conn, table, &code, name, input.is_active)?,
+        None => {
+            let code = repo::next_code(conn, table.coded())?;
+            (repo::insert_named(conn, table, &code, name, input.is_active)?, code)
+        }
     };
     Ok(NamedItem { id, code, name: name.to_owned(), is_active: input.is_active })
 }
@@ -638,31 +653,6 @@ fn required<'a>(value: &'a str, label: &str) -> AppResult<&'a str> {
 
 fn optional(value: &Option<String>) -> Option<&str> {
     value.as_deref().map(str::trim).filter(|v| !v.is_empty())
-}
-
-/// Kode master yang akan disimpan: kode dari user (dinormalisasi), kode lama bila dikosongkan
-/// saat ubah, atau kode otomatis untuk data baru.
-fn resolve_code(conn: &Connection, table: CodedTable, input: Option<&str>, id: Option<i64>) -> AppResult<String> {
-    let typed = input.map(|c| c.trim().to_uppercase()).filter(|c| !c.is_empty());
-    let code = match (typed, id) {
-        (Some(code), _) => {
-            let valid_chars = code.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '-');
-            if !valid_chars || code.len() > MAX_CODE_LEN {
-                return Err(AppError::Validation(format!(
-                    "Kode hanya boleh huruf, angka, dan tanda hubung (maksimal {MAX_CODE_LEN} karakter)"
-                )));
-            }
-            code
-        }
-        (None, Some(id)) => {
-            repo::code_of(conn, table, id)?.ok_or_else(|| AppError::NotFound("Data tidak ditemukan".into()))?
-        }
-        (None, None) => return repo::next_code(conn, table),
-    };
-    if repo::code_taken(conn, table, &code, id)? {
-        return Err(AppError::Conflict(format!("Kode {code} sudah dipakai")));
-    }
-    Ok(code)
 }
 
 fn validate_margin(margin_bp: Option<i64>) -> AppResult<()> {

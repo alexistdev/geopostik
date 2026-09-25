@@ -17,9 +17,8 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { Notify } from '../../../core/ui/notify';
 import { RupiahPipe } from '../../../shared/format';
 import { DRUG_CLASSES, drugClassInfo } from '../../../shared/labels';
+import { MASTER_PAGE_SIZES, PAGE_REPORT } from '../master-table';
 import { ProductDialog } from './product-dialog';
-
-const PAGE_SIZE = 50;
 
 @Component({
   selector: 'app-product-list',
@@ -45,7 +44,9 @@ export class ProductList {
 
   protected readonly drugClasses = DRUG_CLASSES;
   protected readonly drugClassInfo = drugClassInfo;
-  protected readonly pageSize = PAGE_SIZE;
+  protected readonly pageSizes = MASTER_PAGE_SIZES;
+  protected readonly pageReport = PAGE_REPORT;
+  protected pageSize = MASTER_PAGE_SIZES[0];
 
   protected readonly rows = signal<ProductListRow[]>([]);
   protected readonly total = signal(0);
@@ -56,7 +57,7 @@ export class ProductList {
   protected categoryId: number | null = null;
   protected drugClass: DrugClass | null = null;
   protected includeInactive = false;
-  private first = 0;
+  protected readonly first = signal(0);
   private searchTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** `undefined` = dialog tertutup, `null` = obat baru. */
@@ -69,8 +70,8 @@ export class ProductList {
     );
   }
 
-  protected async load(first = this.first): Promise<void> {
-    this.first = first;
+  protected async load(first = this.first()): Promise<void> {
+    this.first.set(first);
     this.loading.set(true);
     try {
       const result = await masterApi.productList({
@@ -79,7 +80,7 @@ export class ProductList {
         drugClass: this.drugClass,
         includeInactive: this.includeInactive,
         offset: first,
-        limit: PAGE_SIZE,
+        limit: this.pageSize,
       });
       this.rows.set(result.rows);
       this.total.set(result.total);
@@ -88,6 +89,11 @@ export class ProductList {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  protected pageChanged(first: number, rows: number): void {
+    this.pageSize = rows;
+    this.load(first);
   }
 
   /** Pencarian menunggu ketikan berhenti sebentar agar tidak memanggil backend tiap huruf. */

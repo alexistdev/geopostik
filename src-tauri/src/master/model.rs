@@ -77,6 +77,7 @@ pub enum MasterKind {
 #[ts(export)]
 pub struct Category {
     pub id: i64,
+    /// Dibuat otomatis oleh sistem (KTG0001), tidak bisa diubah.
     pub code: String,
     pub name: String,
     /// `None` bila user tidak berhak melihat margin, atau kategori tidak punya margin sendiri.
@@ -89,8 +90,6 @@ pub struct Category {
 #[ts(export)]
 pub struct CategoryInput {
     pub id: Option<i64>,
-    /// Kosong → dibuat otomatis (KTG0001) untuk data baru, atau tetap kode lama saat ubah.
-    pub code: Option<String>,
     pub name: String,
     pub margin_bp: Option<i64>,
     pub is_active: bool,
@@ -102,6 +101,7 @@ pub struct CategoryInput {
 #[ts(export)]
 pub struct NamedItem {
     pub id: i64,
+    /// Dibuat otomatis oleh sistem (RAK0001 / PBR0001), tidak bisa diubah.
     pub code: String,
     pub name: String,
     pub is_active: bool,
@@ -112,10 +112,35 @@ pub struct NamedItem {
 #[ts(export)]
 pub struct NamedItemInput {
     pub id: Option<i64>,
-    /// Kosong → dibuat otomatis (RAK0001 / PBR0001) untuk data baru, atau tetap kode lama saat ubah.
-    pub code: Option<String>,
     pub name: String,
     pub is_active: bool,
+}
+
+/// Query daftar Master Data per halaman.
+#[derive(Debug, Default, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct MasterPageQuery {
+    /// Cari nama atau kode (termasuk hasil scan label barcode).
+    pub q: Option<String>,
+    pub offset: i64,
+    pub limit: i64,
+}
+
+#[derive(Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct CategoryPage {
+    pub rows: Vec<Category>,
+    pub total: i64,
+}
+
+#[derive(Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct NamedItemPage {
+    pub rows: Vec<NamedItem>,
+    pub total: i64,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]

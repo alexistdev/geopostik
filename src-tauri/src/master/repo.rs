@@ -1,7 +1,7 @@
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::model::{
-    Category, DrugClass, NamedItem, PriceMode, PriceTierDetail, ProductListQuery, ProductListRow, Unit,
+    Category, DrugClass, MasterPageQuery, NamedItem, PriceMode, PriceTierDetail, ProductListQuery, ProductListRow, Unit,
 };
 use crate::error::AppResult;
 
@@ -25,6 +25,47 @@ pub fn list_categories(conn: &Connection) -> AppResult<Vec<Category>> {
     Ok(rows)
 }
 
+/// Filter pencarian halaman Master Data: nama atau kode mengandung teks (tanpa beda huruf besar/kecil).
+const MASTER_PAGE_FILTER: &str = "deleted_at IS NULL
+      AND (:like IS NULL OR name LIKE :like ESCAPE '\\' OR code LIKE :like ESCAPE '\\')";
+
+/// Pola LIKE `%teks%` dengan karakter khusus LIKE di-escape; `None` bila teks kosong.
+pub fn like_pattern(q: Option<&str>) -> Option<String> {
+    let q = q.map(str::trim).filter(|q| !q.is_empty())?;
+    let escaped = q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
+    Some(format!("%{escaped}%"))
+}
+
+fn page_bounds(q: &MasterPageQuery) -> (i64, i64) {
+    (q.limit.clamp(1, 500), q.offset.max(0))
+}
+
+pub fn page_categories(conn: &Connection, q: &MasterPageQuery) -> AppResult<(Vec<Category>, i64)> {
+    let like = like_pattern(q.q.as_deref());
+    let (limit, offset) = page_bounds(q);
+    let total: i64 = conn.query_row(
+        &format!("SELECT count(*) FROM categories WHERE {MASTER_PAGE_FILTER}"),
+        rusqlite::named_params! { ":like": like },
+        |r| r.get(0),
+    )?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT id, code, name, margin_bp, is_active FROM categories WHERE {MASTER_PAGE_FILTER}
+         ORDER BY name COLLATE NOCASE, id LIMIT :limit OFFSET :offset"
+    ))?;
+    let rows = stmt
+        .query_map(rusqlite::named_params! { ":like": like, ":limit": limit, ":offset": offset }, |r| {
+            Ok(Category {
+                id: r.get(0)?,
+                code: r.get(1)?,
+                name: r.get(2)?,
+                margin_bp: r.get(3)?,
+                is_active: r.get(4)?,
+            })
+        })?
+        .collect::<Result<_, _>>()?;
+    Ok((rows, total))
+}
+
 pub fn category_margin(conn: &Connection, id: i64) -> AppResult<Option<Option<i64>>> {
     Ok(conn
         .query_row(
@@ -43,19 +84,12 @@ pub fn insert_category(conn: &Connection, code: &str, name: &str, margin_bp: Opt
     Ok(conn.last_insert_rowid())
 }
 
-pub fn update_category(
-    conn: &Connection,
-    id: i64,
-    code: &str,
-    name: &str,
-    margin_bp: Option<i64>,
-    is_active: bool,
-) -> AppResult<()> {
+pub fn update_category(conn: &Connection, id: i64, name: &str, margin_bp: Option<i64>, is_active: bool) -> AppResult<()> {
     conn.execute(
-        "UPDATE categories SET code = ?2, name = ?3, margin_bp = ?4, is_active = ?5,
+        "UPDATE categories SET name = ?2, margin_bp = ?3, is_active = ?4,
                                updated_at = datetime('now', 'localtime')
          WHERE id = ?1 AND deleted_at IS NULL",
-        params![id, code, name, margin_bp, is_active],
+        params![id, name, margin_bp, is_active],
     )?;
     Ok(())
 }
@@ -155,20 +189,9 @@ pub fn code_of(conn: &Connection, t: CodedTable, id: i64) -> AppResult<Option<St
         .optional()?)
 }
 
-pub fn code_taken(conn: &Connection, t: CodedTable, code: &str, except_id: Option<i64>) -> AppResult<bool> {
-    Ok(conn.query_row(
-        &format!(
-            "SELECT EXISTS (SELECT 1 FROM {}
-                            WHERE code = ?1 COLLATE NOCASE AND id IS NOT ?2 AND deleted_at IS NULL)",
-            t.table()
-        ),
-        params![code, except_id],
-        |r| r.get(0),
-    )?)
-}
-
 /// Kode otomatis berikutnya, misal RAK0001. Kode yang pernah dipakai (termasuk milik data yang
-/// sudah dihapus) dilewati, agar label lama yang masih tertempel tidak menunjuk ke data baru.
+/// sudah dihapus) dilewati, agar label lama yang masih tertempel tidak menunjuk ke data lain.
+/// Kode master selalu dibuat di sini, tidak pernah diisi manusia.
 pub fn next_code(conn: &Connection, t: CodedTable) -> AppResult<String> {
     let mut n: i64 = conn.query_row(
         &format!("SELECT COALESCE(MAX(id), 0) + 1 FROM {}", t.table()),
@@ -227,6 +250,27 @@ pub fn list_named(conn: &Connection, t: NamedTable) -> AppResult<Vec<NamedItem>>
     Ok(rows)
 }
 
+pub fn page_named(conn: &Connection, t: NamedTable, q: &MasterPageQuery) -> AppResult<(Vec<NamedItem>, i64)> {
+    let like = like_pattern(q.q.as_deref());
+    let (limit, offset) = page_bounds(q);
+    let total: i64 = conn.query_row(
+        &format!("SELECT count(*) FROM {} WHERE {MASTER_PAGE_FILTER}", t.table()),
+        rusqlite::named_params! { ":like": like },
+        |r| r.get(0),
+    )?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT id, code, name, is_active FROM {} WHERE {MASTER_PAGE_FILTER}
+         ORDER BY name COLLATE NOCASE, id LIMIT :limit OFFSET :offset",
+        t.table()
+    ))?;
+    let rows = stmt
+        .query_map(rusqlite::named_params! { ":like": like, ":limit": limit, ":offset": offset }, |r| {
+            Ok(NamedItem { id: r.get(0)?, code: r.get(1)?, name: r.get(2)?, is_active: r.get(3)? })
+        })?
+        .collect::<Result<_, _>>()?;
+    Ok((rows, total))
+}
+
 pub fn named_exists(conn: &Connection, t: NamedTable, id: i64) -> AppResult<bool> {
     Ok(conn.query_row(
         &format!("SELECT EXISTS (SELECT 1 FROM {} WHERE id = ?1 AND deleted_at IS NULL)", t.table()),
@@ -255,14 +299,14 @@ pub fn insert_named(conn: &Connection, t: NamedTable, code: &str, name: &str, is
     Ok(conn.last_insert_rowid())
 }
 
-pub fn update_named(conn: &Connection, t: NamedTable, id: i64, code: &str, name: &str, is_active: bool) -> AppResult<usize> {
+pub fn update_named(conn: &Connection, t: NamedTable, id: i64, name: &str, is_active: bool) -> AppResult<usize> {
     Ok(conn.execute(
         &format!(
-            "UPDATE {} SET code = ?2, name = ?3, is_active = ?4, updated_at = datetime('now', 'localtime')
+            "UPDATE {} SET name = ?2, is_active = ?3, updated_at = datetime('now', 'localtime')
              WHERE id = ?1 AND deleted_at IS NULL",
             t.table()
         ),
-        params![id, code, name, is_active],
+        params![id, name, is_active],
     )?)
 }
 

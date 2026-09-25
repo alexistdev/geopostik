@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { CheckboxModule } from 'primeng/checkbox';
@@ -10,7 +10,9 @@ import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 
 import type { NamedItem } from '../../../bindings/NamedItem';
+import type { MasterPageQuery } from '../../../bindings/MasterPageQuery';
 import type { NamedItemInput } from '../../../bindings/NamedItemInput';
+import type { NamedItemPage } from '../../../bindings/NamedItemPage';
 import { masterApi } from '../../../core/api/master.api';
 import { AuthService } from '../../../core/auth/auth.service';
 import { Notify } from '../../../core/ui/notify';
@@ -18,6 +20,7 @@ import { Barcode } from '../../../shared/barcode';
 import { LabelPrint } from '../../../shared/label-print';
 import type { MasterKind } from '../../../bindings/MasterKind';
 import { MasterRowActions } from '../master-row-actions';
+import { MASTER_PAGE_SIZES, MasterTable, PAGE_REPORT } from '../master-table';
 
 export type NamedKind = 'rack' | 'manufacturer';
 
@@ -29,6 +32,7 @@ const KINDS: Record<
     hint: string;
     placeholder: string;
     list: () => Promise<NamedItem[]>;
+    page: (query: MasterPageQuery) => Promise<NamedItemPage>;
     save: (input: NamedItemInput) => Promise<NamedItem>;
   }
 > = {
@@ -38,6 +42,7 @@ const KINDS: Record<
     hint: 'Lokasi penyimpanan obat, dipilih saat tambah/ubah obat dan dicetak di lembar stok opname.',
     placeholder: 'Misal: A1, Etalase Depan, Kulkas',
     list: masterApi.rackList,
+    page: masterApi.rackPage,
     save: masterApi.rackSave,
   },
   manufacturer: {
@@ -46,13 +51,15 @@ const KINDS: Record<
     hint: 'Pabrik pembuat obat, dipilih saat tambah/ubah obat.',
     placeholder: 'Misal: Kimia Farma',
     list: masterApi.manufacturerList,
+    page: masterApi.manufacturerPage,
     save: masterApi.manufacturerSave,
   },
 };
 
 interface Form {
   id: number | null;
-  code: string;
+  /** Hanya untuk ditampilkan; kode dibuat dan dijaga oleh sistem. */
+  code: string | null;
   name: string;
   isActive: boolean;
 }
@@ -109,46 +116,37 @@ export class NamedList {
   readonly kind = input.required<NamedKind>();
   protected readonly config = computed(() => KINDS[this.kind()]);
 
-  protected readonly items = signal<NamedItem[]>([]);
-  protected readonly filter = signal('');
-  /** Cari nama, atau kode (termasuk hasil scan label barcode). */
-  protected readonly visibleItems = computed(() => {
-    const q = this.filter().trim().toLowerCase();
-    return q
-      ? this.items().filter((i) => i.name.toLowerCase().includes(q) || i.code.toLowerCase().includes(q))
-      : this.items();
+  protected readonly pageSizes = MASTER_PAGE_SIZES;
+  protected readonly pageReport = PAGE_REPORT;
+  /** Dibuat ulang bila jenis (rak/pabrik) berganti. */
+  protected readonly table = computed(() => {
+    const config = this.config();
+    return new MasterTable<NamedItem>(config.page, config.list, (e) => this.notify.error(e));
   });
-  protected selected: NamedItem[] = [];
   protected readonly saving = signal(false);
   protected form: Form | null = null;
 
   constructor() {
     effect(() => {
-      this.kind();
-      this.load();
+      const table = this.table();
+      untracked(() => table.load(0));
     });
-  }
-
-  protected async load(): Promise<void> {
-    try {
-      this.selected = [];
-      this.items.set(await this.config().list());
-    } catch (e) {
-      this.notify.error(e);
-    }
   }
 
   protected open(item?: NamedItem): void {
     if (!this.canEdit) return;
     this.form = item
       ? { id: item.id, code: item.code, name: item.name, isActive: item.isActive }
-      : { id: null, code: '', name: '', isActive: true };
+      : { id: null, code: null, name: '', isActive: true };
   }
 
-  /** Cetak label barcode untuk baris yang dicentang, atau semua yang tampil bila tidak ada yang dicentang. */
-  protected printLabels(): void {
-    const items = this.selected.length ? this.selected : this.visibleItems();
-    this.labels.print(`Label ${this.config().label}`, items);
+  /** Cetak label barcode untuk baris yang dicentang, atau semua yang cocok dengan pencarian. */
+  protected async printLabels(): Promise<void> {
+    try {
+      this.labels.print(`Label ${this.config().label}`, await this.table().itemsToPrint());
+    } catch (e) {
+      this.notify.error(e);
+    }
   }
 
   protected async save(): Promise<void> {
@@ -156,10 +154,10 @@ export class NamedList {
     if (!f) return;
     this.saving.set(true);
     try {
-      await this.config().save({ id: f.id, code: f.code.trim() || null, name: f.name, isActive: f.isActive });
+      await this.config().save({ id: f.id, name: f.name, isActive: f.isActive });
       this.form = null;
       this.notify.success(`${this.config().label} tersimpan`);
-      await this.load();
+      await this.table().load();
     } catch (e) {
       this.notify.error(e);
     } finally {
