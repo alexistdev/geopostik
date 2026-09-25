@@ -1,0 +1,195 @@
+<section class="data-card">
+<div class="toolbar">
+  <p-iconfield class="search">
+    <p-inputicon class="pi pi-search" />
+    <input
+      pInputText
+      type="search"
+      placeholder="Cari nama, username, atau nomor SIPA/SIPTTK"
+      [(ngModel)]="q"
+      (ngModelChange)="searchChanged()"
+      autofocus
+    />
+  </p-iconfield>
+
+  <p-select
+    [options]="roles"
+    optionLabel="label"
+    optionValue="value"
+    [(ngModel)]="role"
+    (onChange)="load(0)"
+    placeholder="Semua peran"
+    [showClear]="true"
+    appendTo="body"
+  />
+
+  <label class="inactive">
+    <p-checkbox [(ngModel)]="includeInactive" [binary]="true" (onChange)="load(0)" />
+    Tampilkan nonaktif
+  </label>
+
+  <span class="spacer"></span>
+
+  @if (selected.length) {
+    <span class="selected-count">{{ selected.length }} dicentang</span>
+    <p-select
+      [options]="batchActions"
+      optionLabel="label"
+      optionValue="value"
+      [(ngModel)]="batchAction"
+      (onChange)="runBatch($event.value)"
+      placeholder="Aksi massal"
+      [disabled]="batchRunning()"
+      appendTo="body"
+    >
+      <ng-template #item let-a>
+        <span class="batch-item" [class.danger]="a.value === 'DELETE'"><i [class]="a.icon"></i>{{ a.label }}</span>
+      </ng-template>
+    </p-select>
+  }
+
+  <p-button label="Tambah Pengguna" icon="pi pi-user-plus" (onClick)="editing.set(null)" />
+</div>
+
+<p-table
+  [value]="rows()"
+  [(selection)]="selected"
+  dataKey="id"
+  [lazy]="true"
+  (onLazyLoad)="pageChanged($event.first ?? 0, $event.rows ?? pageSize)"
+  [paginator]="true"
+  [first]="first()"
+  [rows]="pageSize"
+  [rowsPerPageOptions]="pageSizes"
+  [totalRecords]="total()"
+  [showCurrentPageReport]="true"
+  [currentPageReportTemplate]="pageReport"
+  [loading]="loading()"
+  [rowHover]="true"
+  [scrollable]="true"
+  scrollHeight="flex"
+  styleClass="data-table compact"
+>
+  <ng-template #header>
+    <tr>
+      <th style="width: 3.25rem"><p-tableHeaderCheckbox /></th>
+      <th style="width: 9rem">Username</th>
+      <th style="min-width: 14rem">Nama</th>
+      <th style="width: 13rem">Peran</th>
+      <th style="width: 10rem">SIPA / SIPTTK</th>
+      <th style="width: 9rem">Login terakhir</th>
+      <th style="width: 9rem">Dibuat</th>
+      <th style="width: 7.5rem"></th>
+    </tr>
+  </ng-template>
+
+  <ng-template #body let-row>
+    @let lastLogin = (row.lastLoginAt | dateTime).split(' ');
+    @let created = (row.createdAt | dateTime).split(' ');
+    <tr [class.inactive-row]="!row.isActive">
+      <td><p-tableCheckbox [value]="row" /></td>
+      <td><span class="cell-code">{{ row.username }}</span></td>
+      <td>
+        <div class="cell-name">
+          <span class="avatar">{{ row.fullName.charAt(0) }}</span>
+          <div class="name-text">
+            <span>
+              {{ row.fullName }}
+              @if (!row.isActive) {
+                <span class="status">Nonaktif</span>
+              }
+            </span>
+            @if (isSelf(row)) {
+              <small>Akun Anda</small>
+            } @else if (!row.hasPin) {
+              <small>Belum punya PIN</small>
+            }
+          </div>
+        </div>
+      </td>
+      <td>
+        <div class="tags">
+          @for (r of row.roles; track r) {
+            <p-tag [value]="roleInfo(r).label" [severity]="roleInfo(r).severity" [rounded]="true" />
+          }
+        </div>
+      </td>
+      <td>
+        @if (row.licenseNumber) {
+          <div class="name-text">
+            <span>{{ row.licenseNumber }}</span>
+            <small>{{ row.licenseType }}</small>
+          </div>
+        } @else {
+          <span class="muted">–</span>
+        }
+      </td>
+      <td>
+        @if (row.lastLoginAt) {
+          <div class="cell-date">
+            {{ lastLogin[0] }}
+            <small>{{ lastLogin[1] }}</small>
+          </div>
+        } @else {
+          <span class="muted">Belum pernah</span>
+        }
+      </td>
+      <td>
+        <div class="cell-date">
+          {{ created[0] }}
+          <small>{{ row.createdBy ? 'oleh ' + row.createdBy : 'setup awal' }}</small>
+        </div>
+      </td>
+      <td class="actions">
+        <p-button
+          icon="pi pi-pencil"
+          [rounded]="true"
+          [text]="true"
+          size="small"
+          pTooltip="Edit"
+          tooltipPosition="top"
+          ariaLabel="Edit"
+          (onClick)="editing.set(row)"
+        />
+        <p-button
+          [icon]="row.isActive ? 'pi pi-ban' : 'pi pi-check-circle'"
+          [rounded]="true"
+          [text]="true"
+          size="small"
+          [severity]="row.isActive ? 'warn' : 'success'"
+          [pTooltip]="isSelf(row) ? 'Akun sendiri tidak bisa dinonaktifkan' : row.isActive ? 'Nonaktifkan' : 'Aktifkan'"
+          tooltipPosition="top"
+          [ariaLabel]="row.isActive ? 'Nonaktifkan' : 'Aktifkan'"
+          [disabled]="isSelf(row)"
+          (onClick)="toggleActive(row)"
+        />
+        <p-button
+          icon="pi pi-trash"
+          [rounded]="true"
+          [text]="true"
+          size="small"
+          severity="danger"
+          [pTooltip]="isSelf(row) ? 'Akun sendiri tidak bisa dihapus' : 'Hapus'"
+          tooltipPosition="top"
+          ariaLabel="Hapus"
+          [disabled]="isSelf(row)"
+          (onClick)="confirmDelete(row)"
+        />
+      </td>
+    </tr>
+  </ng-template>
+
+  <ng-template #emptymessage>
+    <tr class="empty-row">
+      <td colspan="8">
+        <i class="pi pi-inbox empty-icon"></i>
+        <div>Tidak ada pengguna yang cocok.</div>
+      </td>
+    </tr>
+  </ng-template>
+</p-table>
+</section>
+
+@if (editing() !== undefined) {
+  <app-user-dialog [user]="editing() ?? null" (closed)="closeDialog($event)" />
+}

@@ -32,6 +32,7 @@ describe('audit-format', () => {
     expect(formatValue('isActive', false)).toBe('Tidak');
     expect(formatValue('drugClass', 'HARD')).toBe('Keras');
     expect(formatValue('rack', null)).toBe('–');
+    expect(formatValue('roles', 'OWNER, PHARMACIST')).toBe('Pemilik, Apoteker');
   });
 
   it('diffs snapshots, including added and removed units', () => {

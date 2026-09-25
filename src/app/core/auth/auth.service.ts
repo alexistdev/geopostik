@@ -62,6 +62,11 @@ export class AuthService {
     this._user.set(await authApi.login(input));
   }
 
+  /** Sesi diperbarui dari Rust, misal setelah pemilik mengubah nama/peran akunnya sendiri. */
+  updateSession(user: SessionUser): void {
+    this._user.set(user);
+  }
+
   async logout(): Promise<void> {
     await authApi.logout();
     this._user.set(null);

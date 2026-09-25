@@ -22,6 +22,9 @@ pub const DEACTIVATE: &str = "DEACTIVATE";
 pub const PRICE_CHANGE: &str = "PRICE_CHANGE";
 /// Harga otomatis dihitung ulang karena data lain berubah (misal margin kategori).
 pub const PRICE_RECALC: &str = "PRICE_RECALC";
+/// Password / PIN user diganti (nilainya tidak pernah dicatat).
+pub const PASSWORD_CHANGE: &str = "PASSWORD_CHANGE";
+pub const PIN_CHANGE: &str = "PIN_CHANGE";
 
 #[derive(Default)]
 pub struct Entry<'a> {
@@ -65,14 +68,18 @@ pub struct Change<'a> {
 }
 
 /// Catat perubahan dengan detail `{ code, name, before, after }`. Kode & nama diambil dari snapshot
-/// agar log tetap terbaca walau datanya kelak diubah atau dihapus. Simpan tanpa perubahan apa pun
-/// (snapshot sama persis) tidak dicatat.
+/// (untuk user, `username` menjadi kode) agar log tetap terbaca walau datanya kelak diubah atau
+/// dihapus. Simpan tanpa perubahan apa pun (snapshot sama persis) tidak dicatat.
 pub fn log_change(conn: &Connection, change: Change<'_>) -> AppResult<()> {
     if change.before.is_some() && change.before == change.after {
         return Ok(());
     }
     let current = change.after.as_ref().or(change.before.as_ref());
     let field = |key: &str| current.and_then(|s| s.get(key)).cloned().unwrap_or(Value::Null);
+    let code = match field("code") {
+        Value::Null => field("username"),
+        code => code,
+    };
     log(
         conn,
         Entry {
@@ -81,7 +88,7 @@ pub fn log_change(conn: &Connection, change: Change<'_>) -> AppResult<()> {
             entity: Some(change.entity),
             entity_id: Some(change.entity_id),
             detail: Some(json!({
-                "code": field("code"),
+                "code": code,
                 "name": field("name"),
                 "before": change.before,
                 "after": change.after,

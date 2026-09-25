@@ -6,5 +6,7 @@ pub(crate) mod pricing;
 mod repo;
 mod service;
 
+pub use model::BatchResult;
+
 #[cfg(test)]
 mod tests;

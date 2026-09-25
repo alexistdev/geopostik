@@ -37,6 +37,18 @@ diulang di daftar di bawah agar ringkas.
 | license_type | TEXT NULL | `SIPA` / `SIPTTK` |
 | license_number | TEXT NULL | dicetak di etiket, copy resep, laporan SIPNAP |
 | is_active | INTEGER | |
+| deleted_at, deleted_by | TEXT, FK users NULL | soft delete dari menu Pengguna |
+| created_by | FK users NULL | pemilik yang membuat akun; NULL untuk pemilik dari setup awal |
+
+Menu **Pengguna** (hak `USER_MANAGE`, migration `011_user_soft_delete.sql`): user **tidak pernah
+dihapus permanen** (trigger menolak `DELETE`). Hapus = soft delete: disembunyikan dari daftar dan
+tidak bisa login lagi, tetapi transaksi dan log yang menunjuk ke user itu tetap utuh. Username user
+terhapus tetap dicadangkan (tidak bisa dipakai lagi) agar log lama tidak tertukar orang. Aturan:
+akun sendiri tidak bisa dinonaktifkan/dihapus atau dilepas peran Pemiliknya, dan harus selalu ada
+minimal satu Pemilik aktif. Nomor SIPA wajib untuk Apoteker, SIPTTK opsional untuk TTK. Setiap
+perubahan (tambah, ubah data/peran, aktif/nonaktif, hapus) dicatat di `audit_logs` entity `users`
+sebagai snapshot sebelum/sesudah; ganti password/PIN dicatat sebagai `PASSWORD_CHANGE` /
+`PIN_CHANGE` tanpa nilainya.
 
 ### `user_roles`
 | Kolom | Tipe | Keterangan |

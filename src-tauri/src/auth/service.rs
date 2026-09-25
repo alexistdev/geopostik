@@ -101,7 +101,7 @@ pub fn logout(conn: &Connection, user: &SessionUser) -> AppResult<()> {
     )
 }
 
-fn session_for(conn: &Connection, id: i64, username: String, full_name: String) -> AppResult<SessionUser> {
+pub(crate) fn session_for(conn: &Connection, id: i64, username: String, full_name: String) -> AppResult<SessionUser> {
     let roles = repo::roles_of(conn, id)?;
     let permissions = effective_permissions(&roles, settings::access(conn)?);
     Ok(SessionUser {
@@ -113,7 +113,7 @@ fn session_for(conn: &Connection, id: i64, username: String, full_name: String) 
     })
 }
 
-fn required<'a>(value: &'a str, label: &str) -> AppResult<&'a str> {
+pub(crate) fn required<'a>(value: &'a str, label: &str) -> AppResult<&'a str> {
     let v = value.trim();
     if v.is_empty() {
         return Err(AppError::Validation(format!("{label} wajib diisi")));
@@ -121,7 +121,7 @@ fn required<'a>(value: &'a str, label: &str) -> AppResult<&'a str> {
     Ok(v)
 }
 
-fn validate_username(username: &str) -> AppResult<String> {
+pub(crate) fn validate_username(username: &str) -> AppResult<String> {
     let u = username.trim().to_lowercase();
     let valid_chars = u.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_');
     if !(3..=32).contains(&u.len()) || !valid_chars {
@@ -132,14 +132,14 @@ fn validate_username(username: &str) -> AppResult<String> {
     Ok(u)
 }
 
-fn validate_password(password: &str) -> AppResult<()> {
+pub(crate) fn validate_password(password: &str) -> AppResult<()> {
     if password.chars().count() < 6 {
         return Err(AppError::Validation("Password minimal 6 karakter".into()));
     }
     Ok(())
 }
 
-fn validate_pin(pin: &str) -> AppResult<()> {
+pub(crate) fn validate_pin(pin: &str) -> AppResult<()> {
     if !(4..=6).contains(&pin.len()) || !pin.chars().all(|c| c.is_ascii_digit()) {
         return Err(AppError::Validation("PIN harus 4–6 digit angka".into()));
     }

@@ -6,6 +6,7 @@ mod license;
 mod master;
 mod settings;
 mod state;
+mod users;
 
 use std::path::PathBuf;
 
@@ -93,6 +94,13 @@ pub fn run() {
             master::commands::product_delete_many,
             audit::commands::audit_page,
             audit::commands::audit_users,
+            users::commands::user_list,
+            users::commands::user_get,
+            users::commands::user_save,
+            users::commands::user_set_active,
+            users::commands::user_delete,
+            users::commands::user_set_active_many,
+            users::commands::user_delete_many,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

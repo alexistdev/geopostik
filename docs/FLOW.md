@@ -247,7 +247,7 @@ salinan terakhir, dan ada tombol backup manual ke flashdisk. Restore hanya bisa 
 8. Retur (penjualan dan supplier)
 9. Stok: stok awal, kartu stok, stok opname, pemusnahan
 10. Laporan
-11. Pengguna
+11. Pengguna (tabel seperti Obat: cari, filter peran, aksi massal; soft delete; semua perubahan masuk log)
 12. Pengaturan: profil apotek, pajak & harga, printer, backup
 
 ## 5. Data utama (gambaran, belum tabel)

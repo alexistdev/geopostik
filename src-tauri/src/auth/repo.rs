@@ -44,7 +44,9 @@ pub fn insert_role(conn: &Connection, user_id: i64, role: Role) -> AppResult<()>
 pub fn find_by_username(conn: &Connection, username: &str) -> AppResult<Option<LoginRow>> {
     Ok(conn
         .query_row(
-            "SELECT id, username, full_name, password_hash, is_active FROM users WHERE username = ?1",
+            // User yang sudah dihapus (soft delete) dianggap tidak ada.
+            "SELECT id, username, full_name, password_hash, is_active FROM users
+             WHERE username = ?1 AND deleted_at IS NULL",
             [username],
             |r| {
                 Ok(LoginRow {

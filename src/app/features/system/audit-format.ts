@@ -1,7 +1,7 @@
 import type { AuditRow } from '../../bindings/AuditRow';
 import type { DrugClass } from '../../bindings/DrugClass';
 import { bpToPercent, formatCostX100, formatRupiah } from '../../shared/format';
-import { drugClassInfo, PRICE_MODES } from '../../shared/labels';
+import { drugClassInfo, PRICE_MODES, ROLES } from '../../shared/labels';
 
 type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -24,6 +24,8 @@ export const ACTIONS: { value: string; label: string; severity: TagSeverity }[] 
   { value: 'DEACTIVATE', label: 'Nonaktifkan', severity: 'warn' },
   { value: 'PRICE_CHANGE', label: 'Ubah harga', severity: 'info' },
   { value: 'PRICE_RECALC', label: 'Hitung ulang harga', severity: 'secondary' },
+  { value: 'PASSWORD_CHANGE', label: 'Ganti password', severity: 'warn' },
+  { value: 'PIN_CHANGE', label: 'Ganti PIN', severity: 'warn' },
   { value: 'LOGIN', label: 'Login', severity: 'secondary' },
   { value: 'LOGOUT', label: 'Logout', severity: 'secondary' },
   { value: 'INITIAL_SETUP', label: 'Setup awal', severity: 'contrast' },
@@ -75,6 +77,9 @@ const FIELD_LABELS: Record<string, string> = {
   price: 'Harga',
   username: 'Username',
   alsoPharmacist: 'Juga apoteker',
+  roles: 'Peran',
+  licenseType: 'Jenis izin',
+  licenseNumber: 'Nomor SIPA/SIPTTK',
 };
 
 export function fieldLabel(path: string[]): string {
@@ -109,6 +114,12 @@ export function formatValue(key: string, value: unknown): string {
   if (typeof value === 'string') {
     if (key === 'drugClass') return drugClassInfo(value as DrugClass)?.label ?? value;
     if (key === 'priceMode') return PRICE_MODES.find((m) => m.value === value)?.label ?? value;
+    if (key === 'roles') {
+      return value
+        .split(', ')
+        .map((r) => ROLES.find((x) => x.value === r)?.label ?? r)
+        .join(', ');
+    }
     return value;
   }
   return JSON.stringify(value);

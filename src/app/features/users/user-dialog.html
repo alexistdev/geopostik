@@ -1,0 +1,146 @@
+@let f = form;
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="close()"
+  [modal]="true"
+  [draggable]="false"
+  [style]="{ width: '640px' }"
+  styleClass="master-dialog"
+>
+  <ng-template #header>
+    <div class="dlg-head">
+      <span class="dlg-icon"><i [class]="isNew() ? 'pi pi-user-plus' : 'pi pi-user'"></i></span>
+      <div class="dlg-title">
+        <span class="dlg-name">{{ isNew() ? 'Pengguna baru' : user()!.fullName }}</span>
+        @if (user(); as u) {
+          <span class="dlg-meta">
+            <span class="mono">&#64;{{ u.username }}</span>
+            <p-tag [value]="u.isActive ? 'Aktif' : 'Nonaktif'" [severity]="u.isActive ? 'success' : 'secondary'" />
+            @if (isSelf()) {
+              <p-tag value="Akun Anda" severity="info" />
+            }
+          </span>
+        } @else {
+          <span class="dlg-meta">Buat akun, pilih peran, lalu atur password dan PIN.</span>
+        }
+      </div>
+    </div>
+  </ng-template>
+
+  <section class="card">
+    <header class="card-head">
+      <span class="card-icon"><i class="pi pi-id-card"></i></span>
+      <div>
+        <h3>Akun</h3>
+        <p>Nama tampil di struk, laporan, dan log.</p>
+      </div>
+    </header>
+    <div class="grid">
+      <div class="field">
+        <label for="fullName">Nama lengkap <span class="req">*</span></label>
+        <input pInputText id="fullName" [(ngModel)]="f.fullName" placeholder="Misal: Sari Dewi" autofocus />
+      </div>
+      <div class="field">
+        <label for="username">Username <span class="req">*</span></label>
+        <input pInputText id="username" [(ngModel)]="f.username" autocomplete="off" placeholder="Misal: sari" />
+        <small>3–32 karakter: huruf, angka, titik, garis bawah</small>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <header class="card-head">
+      <span class="card-icon"><i class="pi pi-shield"></i></span>
+      <div>
+        <h3>Peran <span class="req">*</span></h3>
+        <p>Boleh lebih dari satu; hak aksesnya digabung.</p>
+      </div>
+    </header>
+    <div class="roles">
+      @for (r of allRoles; track r.value) {
+        <button
+          type="button"
+          class="role"
+          [class.on]="hasRole(r.value)"
+          [disabled]="roleLocked(r.value)"
+          [attr.aria-pressed]="hasRole(r.value)"
+          (click)="toggleRole(r.value)"
+        >
+          <i [class]="hasRole(r.value) ? 'pi pi-check-square' : 'pi pi-stop'"></i>
+          <span>
+            {{ r.label }}
+            <small>{{ roleLocked(r.value) ? 'Tidak bisa dilepas dari akun sendiri' : r.hint }}</small>
+          </span>
+        </button>
+      }
+    </div>
+    @if (license(); as l) {
+      <div class="field license">
+        <label for="license">{{ l.label }} @if (l.required) {<span class="req">*</span>}</label>
+        <input pInputText id="license" [(ngModel)]="f.licenseNumber" placeholder="Dicetak di etiket, copy resep, dan laporan SIPNAP" />
+      </div>
+    }
+  </section>
+
+  <section class="card">
+    <header class="card-head">
+      <span class="card-icon"><i class="pi pi-lock"></i></span>
+      <div>
+        <h3>Password &amp; PIN</h3>
+        <p>
+          @if (isNew()) {
+            Password untuk login; PIN 4–6 digit untuk otorisasi dan membuka kunci layar.
+          } @else {
+            Kosongkan bila tidak diganti. Penggantian dicatat di log (tanpa nilainya).
+          }
+        </p>
+      </div>
+    </header>
+    <div class="grid">
+      <div class="field">
+        <label for="password">{{ isNew() ? 'Password' : 'Password baru' }} @if (isNew()) {<span class="req">*</span>}</label>
+        <input pInputText id="password" type="password" [(ngModel)]="f.password" autocomplete="new-password" placeholder="Minimal 6 karakter" />
+      </div>
+      <div class="field">
+        <label for="passwordConfirm">Ulangi password</label>
+        <input
+          pInputText
+          id="passwordConfirm"
+          type="password"
+          [(ngModel)]="f.passwordConfirm"
+          autocomplete="new-password"
+          [invalid]="passwordMismatch()"
+        />
+        @if (passwordMismatch()) {
+          <small class="error">Password tidak sama</small>
+        }
+      </div>
+      <div class="field">
+        <label for="pin">{{ isNew() ? 'PIN' : 'PIN baru' }} @if (isNew()) {<span class="req">*</span>}</label>
+        <input
+          pInputText
+          id="pin"
+          type="password"
+          inputmode="numeric"
+          maxlength="6"
+          [(ngModel)]="f.pin"
+          autocomplete="new-password"
+          [placeholder]="!isNew() && !user()!.hasPin ? 'Belum punya PIN' : '4–6 digit angka'"
+        />
+      </div>
+    </div>
+  </section>
+
+  <label class="switch-row" [class.locked]="isSelf()">
+    <span>
+      Aktif
+      <small>{{ isSelf() ? 'Akun sendiri tidak bisa dinonaktifkan.' : 'Pengguna nonaktif tidak bisa login.' }}</small>
+    </span>
+    <p-toggleswitch [(ngModel)]="f.isActive" [disabled]="isSelf()" />
+  </label>
+
+  <ng-template #footer>
+    <p-button label="Batal" severity="secondary" [outlined]="true" (onClick)="close()" />
+    <p-button label="Simpan" icon="pi pi-check" [loading]="saving()" (onClick)="save()" />
+  </ng-template>
+</p-dialog>
