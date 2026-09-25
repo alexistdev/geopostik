@@ -5,9 +5,12 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
+import { Popover, PopoverModule } from 'primeng/popover';
 import { RadioButtonModule } from 'primeng/radiobutton';
 import { SelectModule } from 'primeng/select';
 import { TabsModule } from 'primeng/tabs';
+import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
 
 import type { Category } from '../../../bindings/Category';
 import type { DrugClass } from '../../../bindings/DrugClass';
@@ -20,7 +23,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { Notify } from '../../../core/ui/notify';
 import { Barcode } from '../../../shared/barcode';
 import { CostX100Pipe, RupiahPipe, bpToPercent, percentToBp } from '../../../shared/format';
-import { DRUG_CLASSES, PRICE_MODES } from '../../../shared/labels';
+import { DRUG_CLASSES, PRICE_MODES, drugClassInfo } from '../../../shared/labels';
 import { ScanSelect } from '../../../shared/scan-select';
 
 interface UnitRow {
@@ -94,9 +97,12 @@ function emptyData(): DataModel {
     DialogModule,
     InputNumberModule,
     InputTextModule,
+    PopoverModule,
     RadioButtonModule,
     SelectModule,
     TabsModule,
+    TagModule,
+    TooltipModule,
     RupiahPipe,
     CostX100Pipe,
     ScanSelect,
@@ -133,12 +139,11 @@ export class ProductDialog {
   protected data: DataModel = emptyData();
   protected price: PriceModel = { marginPercent: null, lastCost: null, units: [] };
   protected newUnitName = '';
+  /** Baris satuan yang membuka popover jenis satuan baru; satuan baru langsung dipilih di baris ini. */
+  private newUnitRow: number | null = null;
   private changed = false;
 
-  protected readonly title = computed(() => {
-    const p = this.product();
-    return p ? `${p.code} · ${p.name}` : 'Obat baru';
-  });
+  protected readonly drugClass = computed(() => drugClassInfo(this.product()?.drugClass ?? 'FREE'));
   protected readonly unitsLocked = computed(() => this.product()?.hasStock ?? false);
 
   async ngOnInit(): Promise<void> {
@@ -230,13 +235,22 @@ export class ProductDialog {
     }
   }
 
-  protected async createUnit(): Promise<void> {
+  protected openNewUnit(event: Event, row: number, pop: Popover): void {
+    this.newUnitRow = row;
+    this.newUnitName = '';
+    pop.toggle(event);
+  }
+
+  protected async createUnit(pop: Popover): Promise<void> {
     const name = this.newUnitName.trim();
     if (!name) return;
     try {
       const unit = await masterApi.unitCreate(name);
       this.units.update((list) => [...list, unit].sort((a, b) => a.name.localeCompare(b.name)));
+      const row = this.newUnitRow != null ? this.data.units[this.newUnitRow] : undefined;
+      if (row) row.unitId = unit.id;
       this.newUnitName = '';
+      pop.hide();
       this.notify.success(`Satuan ${unit.name} ditambahkan`);
     } catch (e) {
       this.notify.error(e);

@@ -1,8 +1,115 @@
+// ─── Header dialog ───────────────────────────────────────────────────────────
+
+.dlg-head {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  min-width: 0;
+}
+
+.dlg-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 12px;
+  background: var(--p-primary-50);
+  color: var(--p-primary-600);
+  font-size: 1.25rem;
+}
+
+.dlg-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.dlg-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dlg-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.85rem;
+}
+
+.mono {
+  font-family: ui-monospace, Consolas, monospace;
+  font-weight: 600;
+  color: var(--p-text-color);
+}
+
+p-tab i {
+  margin-right: 0.375rem;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 420px;
+  color: var(--p-text-muted-color);
+}
+
+// ─── Kartu bagian ────────────────────────────────────────────────────────────
+
 .plain {
   border: 0;
   padding: 0;
   margin: 0;
   min-width: 0;
+}
+
+.card {
+  border: 1px solid var(--p-surface-200);
+  border-radius: 12px;
+  padding: 1rem 1.125rem 0.25rem;
+  margin-top: 1rem;
+  background: var(--p-surface-0);
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+
+  h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 0.125rem 0 0;
+    font-size: 0.8rem;
+    color: var(--p-text-muted-color);
+  }
+
+  .spacer {
+    flex: 1;
+  }
+}
+
+.card-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  background: var(--p-surface-100);
+  color: var(--p-text-muted-color);
 }
 
 .grid {
@@ -20,16 +127,85 @@
   }
 }
 
-h3 {
-  margin: 1rem 0 0.5rem;
-  font-size: 1rem;
+.req {
+  color: var(--p-red-500);
 }
 
-.check {
+// Kode: pratinjau barcode, menempati dua baris di kolom kanan.
+.code-card {
+  grid-column: 3;
+  grid-row: span 2;
   display: flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border: 1px dashed var(--p-surface-300);
+  border-radius: 10px;
+  background: var(--p-surface-50);
+  text-align: center;
+
+  .code-label {
+    align-self: flex-start;
+    font-weight: 600;
+  }
+
+  > i {
+    font-size: 1.75rem;
+    color: var(--p-surface-400);
+  }
+
+  small {
+    color: var(--p-text-muted-color);
+    line-height: 1.35;
+  }
+
+  app-barcode {
+    padding: 0.5rem 0.75rem;
+    background: #fff;
+    border-radius: 6px;
+  }
+}
+
+.owa {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  align-self: start;
+  margin-top: 1.6rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--p-red-200);
+  border-radius: 8px;
+  background: var(--p-red-50);
+  cursor: pointer;
+
+  span {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  small {
+    color: var(--p-text-muted-color);
+  }
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
   gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  margin: -0.25rem 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: var(--p-amber-50);
+  color: var(--p-amber-800);
+  font-size: 0.85rem;
+
+  i {
+    margin-top: 0.15rem;
+  }
 }
 
 .hint {
@@ -38,6 +214,8 @@ h3 {
   margin: 0.25rem 0 0.5rem;
 }
 
+// ─── Tabel ───────────────────────────────────────────────────────────────────
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -45,7 +223,7 @@ table {
   th {
     text-align: left;
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--p-text-muted-color);
     padding: 0.25rem 0.5rem 0.25rem 0;
   }
@@ -60,33 +238,63 @@ table {
   }
 }
 
-.base {
-  color: var(--p-text-muted-color);
+.units {
+  margin-bottom: 0.875rem;
+
+  th {
+    padding: 0.5rem 0.75rem;
+    background: var(--p-surface-50);
+    border-bottom: 1px solid var(--p-surface-200);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.72rem;
+  }
+
+  td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--p-surface-100);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  tr.is-primary td {
+    background: var(--p-primary-50);
+  }
 }
 
-.unit-actions,
+.pill {
+  display: inline-block;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  background: var(--p-surface-100);
+  color: var(--p-text-muted-color);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+// ─── Footer ──────────────────────────────────────────────────────────────────
+
 .footer {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.75rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--p-surface-200);
 
   .spacer {
     flex: 1;
   }
 }
 
-.footer {
-  margin-top: 1.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--p-surface-200);
-}
-
 .price-card {
   border: 1px solid var(--p-surface-200);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  padding: 0.875rem 1rem;
   margin-top: 0.75rem;
+  background: var(--p-surface-0);
 }
 
 .price-head {
@@ -126,8 +334,35 @@ table {
   width: 9rem;
 }
 
-.unit-actions input {
-  width: 16rem;
+.unit-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+
+  p-select {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.new-unit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+
+  label {
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+}
+
+.new-unit-row {
+  display: flex;
+  gap: 0.5rem;
+
+  input {
+    width: 14rem;
+  }
 }
 
 .opt-code {
@@ -136,9 +371,4 @@ table {
   font-family: ui-monospace, Consolas, monospace;
   font-size: 0.85em;
   color: var(--p-text-muted-color);
-}
-
-.code-hint {
-  color: var(--p-text-muted-color);
-  line-height: 1.3;
 }

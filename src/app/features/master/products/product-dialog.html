@@ -1,18 +1,38 @@
 <p-dialog
-  [header]="title()"
   [visible]="visible()"
   (visibleChange)="close()"
   [modal]="true"
   [draggable]="false"
-  [style]="{ width: '960px' }"
-  [contentStyle]="{ minHeight: '520px' }"
+  [style]="{ width: '980px' }"
+  [contentStyle]="{ minHeight: '540px' }"
+  styleClass="product-dialog"
 >
+  <ng-template #header>
+    <div class="dlg-head">
+      <span class="dlg-icon"><i class="pi pi-box"></i></span>
+      <div class="dlg-title">
+        <span class="dlg-name">{{ product()?.name ?? 'Obat baru' }}</span>
+        @if (product(); as p) {
+          <span class="dlg-meta">
+            <span class="mono">{{ p.code }}</span>
+            <p-tag [value]="drugClass().label" [severity]="drugClass().severity" />
+            @if (!p.isActive) {
+              <p-tag value="Nonaktif" severity="secondary" />
+            }
+          </span>
+        } @else {
+          <span class="dlg-meta">Lengkapi data obat, lalu atur harga setelah disimpan.</span>
+        }
+      </div>
+    </div>
+  </ng-template>
+
   @if (!loading()) {
     <p-tabs [value]="tab()" (valueChange)="tab.set($any($event))">
       <p-tablist>
-        <p-tab value="data">Data Obat</p-tab>
+        <p-tab value="data"><i class="pi pi-file-edit"></i> Data Obat</p-tab>
         @if (canEditPrice) {
-          <p-tab value="price" [disabled]="!product()">Harga</p-tab>
+          <p-tab value="price" [disabled]="!product()"><i class="pi pi-tag"></i> Harga</p-tab>
         }
       </p-tablist>
 
@@ -20,178 +40,260 @@
         <!-- ─── Data obat ─── -->
         <p-tabpanel value="data">
           <fieldset [disabled]="!canEditData" class="plain">
-            <div class="grid">
-              <div class="field">
-                <label>Kode</label>
-                @if (data.code) {
-                  <app-barcode [value]="data.code" [height]="28" />
-                } @else {
-                  <small class="code-hint">Dibuat otomatis oleh sistem saat disimpan, lalu bisa dicetak sebagai label barcode.</small>
+            <section class="card">
+              <header class="card-head">
+                <span class="card-icon"><i class="pi pi-info-circle"></i></span>
+                <div>
+                  <h3>Informasi obat</h3>
+                  <p>Nama dan asal obat.</p>
+                </div>
+              </header>
+              <div class="grid">
+                <div class="field span-2">
+                  <label for="name">Nama dagang <span class="req">*</span></label>
+                  <input pInputText id="name" [(ngModel)]="data.name" placeholder="Misal: Paracetamol 500 mg" autofocus />
+                </div>
+                <div class="code-card">
+                  <span class="code-label">Kode</span>
+                  @if (data.code) {
+                    <app-barcode [value]="data.code" [height]="34" />
+                  } @else {
+                    <i class="pi pi-barcode"></i>
+                    <small>Dibuat otomatis saat disimpan, lalu bisa dicetak sebagai label barcode.</small>
+                  }
+                </div>
+                <div class="field">
+                  <label for="generic">Nama generik</label>
+                  <input pInputText id="generic" [(ngModel)]="data.genericName" placeholder="Zat aktif" />
+                </div>
+                <div class="field">
+                  <label for="manufacturer">Pabrik</label>
+                  <p-select
+                    inputId="manufacturer"
+                    appScanSelect
+                    [options]="manufacturers()"
+                    optionLabel="name"
+                    optionValue="id"
+                    [(ngModel)]="data.manufacturerId"
+                    [filter]="true"
+                    filterBy="name,code"
+                    [showClear]="true"
+                    placeholder="Pilih atau scan kode pabrik"
+                    emptyMessage="Belum ada data. Tambahkan di menu Master Data → Pabrik"
+                    appendTo="body"
+                  >
+                    <ng-template #item let-o><span class="opt-code">{{ o.code }}</span> {{ o.name }}</ng-template>
+                  </p-select>
+                </div>
+              </div>
+            </section>
+
+            <section class="card">
+              <header class="card-head">
+                <span class="card-icon"><i class="pi pi-sitemap"></i></span>
+                <div>
+                  <h3>Klasifikasi &amp; stok</h3>
+                  <p>Golongan menentukan aturan penjualan obat.</p>
+                </div>
+              </header>
+              <div class="grid">
+                <div class="field">
+                  <label for="drugClass">Golongan <span class="req">*</span></label>
+                  <p-select
+                    inputId="drugClass"
+                    [options]="drugClasses"
+                    optionLabel="label"
+                    optionValue="value"
+                    [(ngModel)]="data.drugClass"
+                    (onChange)="drugClassChanged()"
+                    appendTo="body"
+                  >
+                    <ng-template #selectedItem let-o>
+                      @if (o) {
+                        <p-tag [value]="o.label" [severity]="o.severity" />
+                      }
+                    </ng-template>
+                    <ng-template #item let-o><p-tag [value]="o.label" [severity]="o.severity" /></ng-template>
+                  </p-select>
+                </div>
+                <div class="field">
+                  <label for="category">Kategori</label>
+                  <p-select
+                    inputId="category"
+                    appScanSelect
+                    [options]="categories()"
+                    optionLabel="name"
+                    optionValue="id"
+                    [(ngModel)]="data.categoryId"
+                    [showClear]="true"
+                    [filter]="true"
+                    filterBy="name,code"
+                    placeholder="Tanpa kategori"
+                    emptyMessage="Belum ada data. Tambahkan di menu Master Data → Kategori"
+                    appendTo="body"
+                  >
+                    <ng-template #item let-o><span class="opt-code">{{ o.code }}</span> {{ o.name }}</ng-template>
+                  </p-select>
+                </div>
+                <div class="field">
+                  <label for="rack">Rak</label>
+                  <p-select
+                    inputId="rack"
+                    appScanSelect
+                    [options]="racks()"
+                    optionLabel="name"
+                    optionValue="id"
+                    [(ngModel)]="data.rackId"
+                    [filter]="true"
+                    filterBy="name,code"
+                    [showClear]="true"
+                    placeholder="Pilih atau scan kode rak"
+                    emptyMessage="Belum ada data. Tambahkan di menu Master Data → Rak"
+                    appendTo="body"
+                  >
+                    <ng-template #item let-o><span class="opt-code">{{ o.code }}</span> {{ o.name }}</ng-template>
+                  </p-select>
+                </div>
+                <div class="field">
+                  <label for="minStock">Stok minimal</label>
+                  <p-inputnumber
+                    inputId="minStock"
+                    [(ngModel)]="data.minStockBase"
+                    [min]="0"
+                    [suffix]="baseUnitName() ? ' ' + baseUnitName() : ''"
+                    locale="id-ID"
+                  />
+                  <small>Peringatan muncul bila stok di bawah angka ini.</small>
+                </div>
+                @if (data.drugClass === 'HARD') {
+                  <label class="owa span-2">
+                    <p-checkbox [(ngModel)]="data.isOwa" [binary]="true" [disabled]="!canEditData" />
+                    <span>
+                      <strong>Obat Wajib Apotek (OWA)</strong>
+                      <small>Boleh diserahkan apoteker tanpa resep dokter.</small>
+                    </span>
+                  </label>
                 }
               </div>
-              <div class="field span-2">
-                <label for="name">Nama dagang *</label>
-                <input pInputText id="name" [(ngModel)]="data.name" autofocus />
-              </div>
-              <div class="field">
-                <label for="generic">Nama generik</label>
-                <input pInputText id="generic" [(ngModel)]="data.genericName" />
-              </div>
-              <div class="field">
-                <label for="manufacturer">Pabrik</label>
-                <p-select
-                  inputId="manufacturer"
-                  appScanSelect
-                  [options]="manufacturers()"
-                  optionLabel="name"
-                  optionValue="id"
-                  [(ngModel)]="data.manufacturerId"
-                  [filter]="true"
-                  filterBy="name,code"
-                  [showClear]="true"
-                  placeholder="Pilih atau scan kode pabrik"
-                  emptyMessage="Belum ada data. Tambahkan di menu Master Data → Pabrik"
-                  appendTo="body"
-                >
-                  <ng-template #item let-o><span class="opt-code">{{ o.code }}</span> {{ o.name }}</ng-template>
-                </p-select>
-              </div>
-              <div class="field">
-                <label for="category">Kategori</label>
-                <p-select
-                  inputId="category"
-                  appScanSelect
-                  [options]="categories()"
-                  optionLabel="name"
-                  optionValue="id"
-                  [(ngModel)]="data.categoryId"
-                  [showClear]="true"
-                  [filter]="true"
-                  filterBy="name,code"
-                  placeholder="Tanpa kategori"
-                  emptyMessage="Belum ada data. Tambahkan di menu Master Data → Kategori"
-                  appendTo="body"
-                >
-                  <ng-template #item let-o><span class="opt-code">{{ o.code }}</span> {{ o.name }}</ng-template>
-                </p-select>
-              </div>
-              <div class="field">
-                <label for="drugClass">Golongan *</label>
-                <p-select
-                  inputId="drugClass"
-                  [options]="drugClasses"
-                  optionLabel="label"
-                  optionValue="value"
-                  [(ngModel)]="data.drugClass"
-                  (onChange)="drugClassChanged()"
-                  appendTo="body"
-                />
-              </div>
-              <div class="field">
-                <label for="rack">Rak</label>
-                <p-select
-                  inputId="rack"
-                  appScanSelect
-                  [options]="racks()"
-                  optionLabel="name"
-                  optionValue="id"
-                  [(ngModel)]="data.rackId"
-                  [filter]="true"
-                  filterBy="name,code"
-                  [showClear]="true"
-                  placeholder="Pilih atau scan kode rak"
-                  emptyMessage="Belum ada data. Tambahkan di menu Master Data → Rak"
-                  appendTo="body"
-                >
-                  <ng-template #item let-o><span class="opt-code">{{ o.code }}</span> {{ o.name }}</ng-template>
-                </p-select>
-              </div>
-              <div class="field">
-                <label for="minStock">Stok minimal ({{ baseUnitName() }})</label>
-                <p-inputnumber inputId="minStock" [(ngModel)]="data.minStockBase" [min]="0" locale="id-ID" />
-              </div>
-            </div>
+            </section>
 
-            @if (data.drugClass === 'HARD') {
-              <label class="check">
-                <p-checkbox [(ngModel)]="data.isOwa" [binary]="true" [disabled]="!canEditData" />
-                Obat Wajib Apotek (OWA): boleh diserahkan apoteker tanpa resep
-              </label>
-            }
-
-            <h3>Satuan &amp; barcode</h3>
-            @if (unitsLocked()) {
-              <p class="hint">
-                <i class="pi pi-lock"></i> Obat ini sudah punya stok: satuan dasar dan isi satuan yang ada
-                tidak bisa diubah. Satuan baru tetap bisa ditambahkan.
-              </p>
-            }
-
-            <table class="units">
-              <thead>
-                <tr>
-                  <th style="width: 11rem">Satuan</th>
-                  <th style="width: 11rem">Isi</th>
-                  <th>Barcode (pisahkan dengan koma)</th>
-                  <th style="width: 6rem" class="center">Jual utama</th>
-                  <th style="width: 3rem"></th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (row of data.units; track $index; let i = $index) {
-                  <tr>
-                    <td>
-                      <p-select
-                        [options]="units()"
-                        optionLabel="name"
-                        optionValue="id"
-                        [(ngModel)]="row.unitId"
-                        [disabled]="!canEditData || row.id != null || (i === 0 && unitsLocked())"
-                        [filter]="true"
-                        filterBy="name"
-                        placeholder="Pilih"
-                        appendTo="body"
-                        styleClass="w-full"
-                      />
-                    </td>
-                    <td>
-                      @if (i === 0) {
-                        <span class="base">1 (satuan dasar)</span>
-                      } @else {
-                        <p-inputnumber
-                          [(ngModel)]="row.conversion"
-                          [min]="2"
-                          [disabled]="!canEditData || (row.id != null && unitsLocked())"
-                          [suffix]="' ' + baseUnitName()"
-                          locale="id-ID"
-                          inputStyleClass="w-full"
-                        />
-                      }
-                    </td>
-                    <td>
-                      <input pInputText class="w-full" [(ngModel)]="row.barcodes" placeholder="Scan atau ketik" />
-                    </td>
-                    <td class="center">
-                      <p-radiobutton name="defaultSale" [value]="i" [(ngModel)]="data.defaultIndex" [disabled]="!canEditData" />
-                    </td>
-                    <td>
-                      @if (i > 0 && canEditData) {
-                        <p-button icon="pi pi-trash" severity="danger" [text]="true" (onClick)="removeUnitRow(i)" />
-                      }
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-
-            @if (canEditData) {
-              <div class="unit-actions">
-                <p-button label="Tambah satuan" icon="pi pi-plus" [text]="true" (onClick)="addUnitRow()" />
+            <section class="card">
+              <header class="card-head">
+                <span class="card-icon"><i class="pi pi-th-large"></i></span>
+                <div>
+                  <h3>Satuan</h3>
+                  <p>Baris pertama adalah satuan dasar. Pilih <em>Primary</em> untuk satuan yang dipakai saat dijual.</p>
+                </div>
                 <span class="spacer"></span>
-                <input pInputText [(ngModel)]="newUnitName" placeholder="Jenis satuan baru, misal: Kotak" (keydown.enter)="createUnit()" />
-                <p-button label="Buat jenis satuan" severity="secondary" [outlined]="true" (onClick)="createUnit()" />
+                @if (canEditData) {
+                  <p-button label="Tambah satuan" icon="pi pi-plus" size="small" [outlined]="true" (onClick)="addUnitRow()" />
+                }
+              </header>
+
+              @if (unitsLocked()) {
+                <p class="notice">
+                  <i class="pi pi-lock"></i>
+                  Obat ini sudah punya stok: satuan dasar dan isi satuan yang ada tidak bisa diubah. Satuan baru tetap bisa
+                  ditambahkan.
+                </p>
+              }
+
+              <table class="units">
+                <thead>
+                  <tr>
+                    <th style="width: 5.5rem" class="center">Primary</th>
+                    <th style="width: 18rem">Satuan</th>
+                    <th>Isi</th>
+                    <th style="width: 3rem"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of data.units; track $index; let i = $index) {
+                    <tr [class.is-primary]="i === data.defaultIndex">
+                      <td class="center">
+                        <p-radiobutton
+                          name="defaultSale"
+                          [value]="i"
+                          [(ngModel)]="data.defaultIndex"
+                          [disabled]="!canEditData"
+                          pTooltip="Satuan yang dipakai saat obat dijual"
+                        />
+                      </td>
+                      <td>
+                        <div class="unit-pick">
+                          <p-select
+                            [options]="units()"
+                            optionLabel="name"
+                            optionValue="id"
+                            [(ngModel)]="row.unitId"
+                            [disabled]="!canEditData || row.id != null || (i === 0 && unitsLocked())"
+                            [filter]="true"
+                            filterBy="name"
+                            placeholder="Pilih satuan"
+                            appendTo="body"
+                            styleClass="w-full"
+                          />
+                          @if (canEditData && row.id == null && !(i === 0 && unitsLocked())) {
+                            <p-button
+                              icon="pi pi-plus"
+                              severity="secondary"
+                              [outlined]="true"
+                              pTooltip="Buat jenis satuan baru"
+                              ariaLabel="Buat jenis satuan baru"
+                              (onClick)="openNewUnit($event, i, newUnitPop)"
+                            />
+                          }
+                        </div>
+                      </td>
+                      <td>
+                        @if (i === 0) {
+                          <span class="pill">Satuan dasar</span>
+                        } @else {
+                          <p-inputnumber
+                            [(ngModel)]="row.conversion"
+                            [min]="2"
+                            [disabled]="!canEditData || (row.id != null && unitsLocked())"
+                            [prefix]="'= '"
+                            [suffix]="' ' + baseUnitName()"
+                            placeholder="Isi dalam satuan dasar"
+                            locale="id-ID"
+                            inputStyleClass="w-full"
+                          />
+                        }
+                      </td>
+                      <td class="center">
+                        @if (i > 0 && canEditData) {
+                          <p-button
+                            icon="pi pi-trash"
+                            severity="danger"
+                            [text]="true"
+                            [rounded]="true"
+                            ariaLabel="Hapus satuan"
+                            (onClick)="removeUnitRow(i)"
+                          />
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </section>
+
+            <p-popover #newUnitPop appendTo="body">
+              <div class="new-unit">
+                <label for="newUnitName">Jenis satuan baru</label>
+                <div class="new-unit-row">
+                  <input
+                    pInputText
+                    id="newUnitName"
+                    [(ngModel)]="newUnitName"
+                    placeholder="Misal: Kotak"
+                    (keydown.enter)="createUnit(newUnitPop)"
+                  />
+                  <p-button label="Buat" icon="pi pi-check" (onClick)="createUnit(newUnitPop)" />
+                </div>
               </div>
-            }
+            </p-popover>
           </fieldset>
 
           <div class="footer">
@@ -200,14 +302,14 @@
                 <p-button
                   [label]="p.isActive ? 'Nonaktifkan' : 'Aktifkan kembali'"
                   [icon]="p.isActive ? 'pi pi-ban' : 'pi pi-check-circle'"
-                  severity="secondary"
+                  [severity]="p.isActive ? 'danger' : 'secondary'"
                   [text]="true"
                   (onClick)="toggleActive()"
                 />
               }
             }
             <span class="spacer"></span>
-            <p-button label="Tutup" severity="secondary" [text]="true" (onClick)="close()" />
+            <p-button label="Tutup" severity="secondary" [outlined]="true" (onClick)="close()" />
             @if (canEditData) {
               <p-button label="Simpan data" icon="pi pi-check" [loading]="saving()" (onClick)="saveData()" />
             }
@@ -217,37 +319,46 @@
         <!-- ─── Harga ─── -->
         @if (canEditPrice) {
           <p-tabpanel value="price">
-            <div class="grid">
-              @if (canViewCost) {
+            <section class="card">
+              <header class="card-head">
+                <span class="card-icon"><i class="pi pi-percentage"></i></span>
+                <div>
+                  <h3>Dasar harga</h3>
+                  <p>Harga otomatis = HPP + margin.</p>
+                </div>
+              </header>
+              <div class="grid">
+                @if (canViewCost) {
+                  <div class="field">
+                    <label for="cost">HPP acuan per {{ baseUnitName() }}</label>
+                    <p-inputnumber
+                      inputId="cost"
+                      [(ngModel)]="price.lastCost"
+                      mode="decimal"
+                      [minFractionDigits]="0"
+                      [maxFractionDigits]="2"
+                      prefix="Rp"
+                      locale="id-ID"
+                      [min]="0"
+                    />
+                    <small>Diperbarui otomatis saat penerimaan barang.</small>
+                  </div>
+                }
                 <div class="field">
-                  <label for="cost">HPP acuan per {{ baseUnitName() }}</label>
+                  <label for="margin">Margin obat ini (%)</label>
                   <p-inputnumber
-                    inputId="cost"
-                    [(ngModel)]="price.lastCost"
-                    mode="decimal"
-                    [minFractionDigits]="0"
+                    inputId="margin"
+                    [(ngModel)]="price.marginPercent"
                     [maxFractionDigits]="2"
-                    prefix="Rp"
+                    suffix="%"
                     locale="id-ID"
                     [min]="0"
+                    placeholder="Ikut kategori/default"
                   />
-                  <small>Diperbarui otomatis saat penerimaan barang.</small>
+                  <small>Berlaku sekarang: {{ product()?.effectiveMarginBp! / 100 }}%</small>
                 </div>
-              }
-              <div class="field">
-                <label for="margin">Margin obat ini (%)</label>
-                <p-inputnumber
-                  inputId="margin"
-                  [(ngModel)]="price.marginPercent"
-                  [maxFractionDigits]="2"
-                  suffix="%"
-                  locale="id-ID"
-                  [min]="0"
-                  placeholder="Ikut kategori/default"
-                />
-                <small>Berlaku sekarang: {{ product()?.effectiveMarginBp! / 100 }}%</small>
               </div>
-            </div>
+            </section>
 
             @for (row of price.units; track row.productUnitId) {
               <div class="price-card">
@@ -322,7 +433,7 @@
 
             <div class="footer">
               <span class="spacer"></span>
-              <p-button label="Tutup" severity="secondary" [text]="true" (onClick)="close()" />
+              <p-button label="Tutup" severity="secondary" [outlined]="true" (onClick)="close()" />
               <p-button label="Simpan harga" icon="pi pi-check" [loading]="saving()" (onClick)="savePrices()" />
             </div>
           </p-tabpanel>
@@ -330,6 +441,6 @@
       </p-tabpanels>
     </p-tabs>
   } @else {
-    <p class="hint">Memuat…</p>
+    <div class="loading"><i class="pi pi-spin pi-spinner"></i> Memuat…</div>
   }
 </p-dialog>
