@@ -32,6 +32,15 @@ nav {
   padding: 0.5rem;
   gap: 2px;
 
+  .nav-group {
+    margin: 0.75rem 0.75rem 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.55;
+  }
+
   a {
     display: flex;
     align-items: center;

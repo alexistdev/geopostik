@@ -8,6 +8,8 @@ export interface NavItem {
   permission?: Permission;
   /** Tombol pintas keyboard yang tampil di menu. */
   hotkey?: string;
+  /** Judul kelompok di sidebar; ditampilkan di atas item pertama kelompok. */
+  group?: string;
 }
 
 /** Menu utama. Rute & guard dibuat dari daftar ini (lihat app.routes.ts). */
@@ -22,4 +24,5 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Laporan', icon: 'pi pi-chart-bar', path: 'laporan', permission: 'REPORT_SALES_OWN_SHIFT' },
   { label: 'Pengguna', icon: 'pi pi-users', path: 'pengguna', permission: 'USER_MANAGE' },
   { label: 'Pengaturan', icon: 'pi pi-cog', path: 'pengaturan', permission: 'SETTINGS_MANAGE' },
+  { label: 'Log', icon: 'pi pi-history', path: 'sistem/log', permission: 'AUDIT_VIEW', group: 'Sistem' },
 ];

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use rusqlite::{Connection, TransactionBehavior};
-use serde_json::json;
+use serde_json::{Map, Value, json};
 
 use super::model::{
     Category, CategoryInput, CategoryPage, DrugClass, MasterKind, MasterPageQuery, NamedItem, NamedItemInput,
@@ -10,7 +10,7 @@ use super::model::{
 };
 use super::pricing::{auto_price, unit_cost};
 use super::repo::{self, CodedTable, NamedTable, ProductFields};
-use crate::audit;
+use crate::audit::{self, Change};
 use crate::auth::{Permission, SessionUser};
 use crate::error::{AppError, AppResult};
 use crate::settings::{self, PriceSettings};
@@ -68,6 +68,10 @@ pub fn save_category(conn: &mut Connection, user: &SessionUser, input: &Category
         return Err(AppError::Conflict(format!("Kategori \"{name}\" sudah ada")));
     }
 
+    let before = match input.id {
+        Some(id) => Some(category_snapshot(&tx, id)?.ok_or_else(|| AppError::NotFound("Kategori tidak ditemukan".into()))?),
+        None => None,
+    };
     let (id, margin_changed) = match input.id {
         Some(id) => {
             let old = repo::category_margin(&tx, id)?
@@ -86,22 +90,38 @@ pub fn save_category(conn: &mut Connection, user: &SessionUser, input: &Category
         }
     };
 
+    audit::log_change(
+        &tx,
+        Change {
+            user_id: user.id,
+            action: if before.is_some() { audit::UPDATE } else { audit::CREATE },
+            entity: "categories",
+            entity_id: id,
+            before,
+            after: category_snapshot(&tx, id)?,
+            reason: None,
+        },
+    )?;
     if margin_changed {
+        // Harga otomatis obat di kategori ini ikut berubah: dicatat per obat.
         let price = settings::price(&tx)?;
+        let reason = format!("Margin kategori {name} diubah");
         for product_id in repo::products_in_category(&tx, id)? {
+            let before = product_snapshot(&tx, product_id)?;
             recalc_auto_prices(&tx, product_id, price)?;
+            audit::log_change(
+                &tx,
+                Change {
+                    user_id: user.id,
+                    action: audit::PRICE_RECALC,
+                    entity: "products",
+                    entity_id: product_id,
+                    before: Some(before),
+                    after: Some(product_snapshot(&tx, product_id)?),
+                    reason: Some(&reason),
+                },
+            )?;
         }
-        audit::log(
-            &tx,
-            audit::Entry {
-                user_id: Some(user.id),
-                action: "CATEGORY_MARGIN_CHANGE",
-                entity: Some("categories"),
-                entity_id: Some(id),
-                detail: Some(json!({ "marginBp": input.margin_bp })),
-                ..Default::default()
-            },
-        )?;
     }
     tx.commit()?;
 
@@ -127,22 +147,37 @@ pub fn save_named(conn: &Connection, user: &SessionUser, table: NamedTable, inpu
         NamedTable::Manufacturers => "pabrik",
     };
     let name = required(&input.name, &format!("Nama {label}"))?;
-    if repo::named_name_taken(conn, table, name, input.id)? {
+    let tx = conn.unchecked_transaction()?;
+    if repo::named_name_taken(&tx, table, name, input.id)? {
         return Err(AppError::Conflict(format!("Nama {label} \"{name}\" sudah ada")));
     }
+    let before = match input.id {
+        Some(id) => Some(named_snapshot(&tx, table, id)?.ok_or_else(|| AppError::NotFound(format!("Data {label} tidak ditemukan")))?),
+        None => None,
+    };
     let id = match input.id {
         Some(id) => {
-            if !repo::named_exists(conn, table, id)? {
-                return Err(AppError::NotFound(format!("Data {label} tidak ditemukan")));
-            }
-            repo::update_named(conn, table, id, name, input.is_active)?;
+            repo::update_named(&tx, table, id, name, input.is_active)?;
             id
         }
         None => {
-            let code = repo::next_code(conn, table.coded())?;
-            repo::insert_named(conn, table, &code, name, input.is_active, user.id)?
+            let code = repo::next_code(&tx, table.coded())?;
+            repo::insert_named(&tx, table, &code, name, input.is_active, user.id)?
         }
     };
+    audit::log_change(
+        &tx,
+        Change {
+            user_id: user.id,
+            action: if before.is_some() { audit::UPDATE } else { audit::CREATE },
+            entity: table.entity(),
+            entity_id: id,
+            before,
+            after: named_snapshot(&tx, table, id)?,
+            reason: None,
+        },
+    )?;
+    tx.commit()?;
     repo::get_named(conn, table, id)?.ok_or_else(|| AppError::Internal(format!("data {label} hilang setelah disimpan")))
 }
 
@@ -158,19 +193,25 @@ fn coded_table(kind: MasterKind) -> (CodedTable, &'static str) {
 
 pub fn set_master_active(conn: &Connection, user: &SessionUser, kind: MasterKind, id: i64, active: bool) -> AppResult<()> {
     let (table, label) = coded_table(kind);
-    if repo::set_master_active(conn, table, id, active)? == 0 {
+    let tx = conn.unchecked_transaction()?;
+    let before = master_snapshot(&tx, kind, id)?;
+    if repo::set_master_active(&tx, table, id, active)? == 0 {
         return Err(AppError::NotFound(format!("{label} tidak ditemukan")));
     }
-    audit::log(
-        conn,
-        audit::Entry {
-            user_id: Some(user.id),
-            action: if active { "MASTER_ACTIVATE" } else { "MASTER_DEACTIVATE" },
-            entity: Some(kind_entity(kind)),
-            entity_id: Some(id),
-            ..Default::default()
+    audit::log_change(
+        &tx,
+        Change {
+            user_id: user.id,
+            action: if active { audit::ACTIVATE } else { audit::DEACTIVATE },
+            entity: kind_entity(kind),
+            entity_id: id,
+            before,
+            after: master_snapshot(&tx, kind, id)?,
+            reason: None,
         },
-    )
+    )?;
+    tx.commit()?;
+    Ok(())
 }
 
 /// Hapus (soft delete): data ditandai terhapus dan disembunyikan dari daftar dan pilihan, tidak
@@ -186,16 +227,18 @@ pub fn delete_master(conn: &mut Connection, user: &SessionUser, kind: MasterKind
             "{label} {code} dipakai oleh {used} obat sehingga tidak bisa dihapus. Nonaktifkan saja."
         )));
     }
+    let before = master_snapshot(&tx, kind, id)?;
     repo::soft_delete_master(&tx, table, id, user.id)?;
-    audit::log(
+    audit::log_change(
         &tx,
-        audit::Entry {
-            user_id: Some(user.id),
-            action: "MASTER_DELETE",
-            entity: Some(kind_entity(kind)),
-            entity_id: Some(id),
-            detail: Some(json!({ "code": code })),
-            ..Default::default()
+        Change {
+            user_id: user.id,
+            action: audit::DELETE,
+            entity: kind_entity(kind),
+            entity_id: id,
+            before,
+            after: None,
+            reason: None,
         },
     )?;
     tx.commit()?;
@@ -214,12 +257,26 @@ pub fn list_units(conn: &Connection) -> AppResult<Vec<Unit>> {
     repo::list_units(conn)
 }
 
-pub fn create_unit(conn: &Connection, name: &str) -> AppResult<Unit> {
+pub fn create_unit(conn: &Connection, user: &SessionUser, name: &str) -> AppResult<Unit> {
     let name = required(name, "Nama satuan")?;
-    if repo::unit_name_taken(conn, name)? {
+    let tx = conn.unchecked_transaction()?;
+    if repo::unit_name_taken(&tx, name)? {
         return Err(AppError::Conflict(format!("Satuan \"{name}\" sudah ada")));
     }
-    let id = repo::insert_unit(conn, name)?;
+    let id = repo::insert_unit(&tx, name)?;
+    audit::log_change(
+        &tx,
+        Change {
+            user_id: user.id,
+            action: audit::CREATE,
+            entity: "units",
+            entity_id: id,
+            before: None,
+            after: Some(json!({ "name": name })),
+            reason: None,
+        },
+    )?;
+    tx.commit()?;
     Ok(Unit { id, name: name.to_owned() })
 }
 
@@ -336,8 +393,8 @@ pub fn save_product(conn: &mut Connection, user: &SessionUser, input: &ProductIn
         rack_id: input.rack_id,
     };
 
-    let (product_id, action) = match input.id {
-        None => (repo::insert_product(&tx, &fields)?, "PRODUCT_CREATE"),
+    let (product_id, before) = match input.id {
+        None => (repo::insert_product(&tx, &fields)?, None),
         Some(id) => {
             let old = repo::find_product(&tx, id)?.ok_or_else(|| AppError::NotFound("Obat tidak ditemukan".into()))?;
             if repo::product_has_stock(&tx, id)? && old.base_unit_id != input.base_unit_id {
@@ -345,8 +402,9 @@ pub fn save_product(conn: &mut Connection, user: &SessionUser, input: &ProductIn
                     "Satuan dasar tidak bisa diubah karena obat ini sudah punya stok".into(),
                 ));
             }
+            let before = product_snapshot(&tx, id)?;
             repo::update_product(&tx, id, &fields)?;
-            (id, "PRODUCT_UPDATE")
+            (id, Some(before))
         }
     };
 
@@ -360,15 +418,16 @@ pub fn save_product(conn: &mut Connection, user: &SessionUser, input: &ProductIn
         warnings.push("Ada satuan yang harganya masih 0 dan belum bisa dijual".into());
     }
 
-    audit::log(
+    audit::log_change(
         &tx,
-        audit::Entry {
-            user_id: Some(user.id),
-            action,
-            entity: Some("products"),
-            entity_id: Some(product_id),
-            detail: Some(json!({ "code": code, "name": name })),
-            ..Default::default()
+        Change {
+            user_id: user.id,
+            action: if before.is_some() { audit::UPDATE } else { audit::CREATE },
+            entity: "products",
+            entity_id: product_id,
+            before,
+            after: Some(product_snapshot(&tx, product_id)?),
+            reason: None,
         },
     )?;
     tx.commit()?;
@@ -487,19 +546,23 @@ fn match_existing<'a>(existing: &'a [repo::ProductUnitRow], u: &ProductUnitInput
 }
 
 pub fn set_product_active(conn: &Connection, user: &SessionUser, id: i64, active: bool) -> AppResult<()> {
-    if repo::set_product_active(conn, id, active)? == 0 {
-        return Err(AppError::NotFound("Obat tidak ditemukan".into()));
-    }
-    audit::log(
-        conn,
-        audit::Entry {
-            user_id: Some(user.id),
-            action: if active { "PRODUCT_ACTIVATE" } else { "PRODUCT_DEACTIVATE" },
-            entity: Some("products"),
-            entity_id: Some(id),
-            ..Default::default()
+    let tx = conn.unchecked_transaction()?;
+    let before = product_snapshot(&tx, id)?;
+    repo::set_product_active(&tx, id, active)?;
+    audit::log_change(
+        &tx,
+        Change {
+            user_id: user.id,
+            action: if active { audit::ACTIVATE } else { audit::DEACTIVATE },
+            entity: "products",
+            entity_id: id,
+            before: Some(before),
+            after: Some(product_snapshot(&tx, id)?),
+            reason: None,
         },
-    )
+    )?;
+    tx.commit()?;
+    Ok(())
 }
 
 // ─── Harga ───────────────────────────────────────────────────────────────────
@@ -516,6 +579,7 @@ pub fn save_prices(conn: &mut Connection, user: &SessionUser, input: &ProductPri
     let product = repo::find_product(&tx, input.product_id)?
         .ok_or_else(|| AppError::NotFound("Obat tidak ditemukan".into()))?;
     let units = repo::product_units(&tx, input.product_id)?;
+    let before = product_snapshot(&tx, product.id)?;
 
     // User tanpa VIEW_COST tidak melihat HPP, jadi HPP lama dipertahankan.
     let last_cost = if access.view_cost { input.last_cost_x100 } else { product.last_cost_x100 };
@@ -576,18 +640,16 @@ pub fn save_prices(conn: &mut Connection, user: &SessionUser, input: &ProductPri
         }
     }
 
-    audit::log(
+    audit::log_change(
         &tx,
-        audit::Entry {
-            user_id: Some(user.id),
-            action: "PRICE_CHANGE",
-            entity: Some("products"),
-            entity_id: Some(product.id),
-            detail: Some(json!({
-                "before": units.iter().map(|u| json!({ "unit": u.unit_name, "price": u.sell_price })).collect::<Vec<_>>(),
-                "marginBp": input.margin_bp,
-            })),
-            ..Default::default()
+        Change {
+            user_id: user.id,
+            action: audit::PRICE_CHANGE,
+            entity: "products",
+            entity_id: product.id,
+            before: Some(before),
+            after: Some(product_snapshot(&tx, product.id)?),
+            reason: None,
         },
     )?;
     let warnings = cost_warnings(&tx, product.id)?;
@@ -651,6 +713,77 @@ fn effective_margin(conn: &Connection, own: Option<i64>, category_id: Option<i64
         None => None,
     };
     Ok(category.unwrap_or(price.default_margin_bp))
+}
+
+// ─── Snapshot audit ──────────────────────────────────────────────────────────
+// Isi lengkap satu data untuk log audit (sebelum/sesudah). Relasi ditulis sebagai nama agar log
+// tetap terbaca walau data relasinya kelak diubah. Kunci camelCase diterjemahkan di menu Log.
+
+fn category_snapshot(conn: &Connection, id: i64) -> AppResult<Option<Value>> {
+    Ok(repo::get_category(conn, id)?.map(|c| {
+        json!({ "code": c.code, "name": c.name, "marginBp": c.margin_bp, "isActive": c.is_active })
+    }))
+}
+
+fn named_snapshot(conn: &Connection, table: NamedTable, id: i64) -> AppResult<Option<Value>> {
+    Ok(repo::get_named(conn, table, id)?.map(|n| json!({ "code": n.code, "name": n.name, "isActive": n.is_active })))
+}
+
+fn master_snapshot(conn: &Connection, kind: MasterKind, id: i64) -> AppResult<Option<Value>> {
+    match kind {
+        MasterKind::Category => category_snapshot(conn, id),
+        MasterKind::Rack => named_snapshot(conn, NamedTable::Racks, id),
+        MasterKind::Manufacturer => named_snapshot(conn, NamedTable::Manufacturers, id),
+    }
+}
+
+/// Data obat lengkap termasuk HPP, margin, satuan aktif, barcode, harga, dan tier.
+fn product_snapshot(conn: &Connection, id: i64) -> AppResult<Value> {
+    let full = PriceAccess { view_cost: true, manage_price: true };
+    let p = get_product(conn, id, full)?;
+    let names = repo::product_ref_names(conn, id)?;
+    let units: Map<String, Value> = p
+        .units
+        .iter()
+        .filter(|u| u.is_active)
+        .map(|u| {
+            let mut barcodes = u.barcodes.clone();
+            barcodes.sort();
+            let tiers: Map<String, Value> = u
+                .tiers
+                .iter()
+                .map(|t| {
+                    let tier = json!({ "priceMode": t.price_mode, "marginBp": t.margin_bp, "price": t.price });
+                    (format!("≥ {}", t.min_qty), tier)
+                })
+                .collect();
+            let unit = json!({
+                "conversion": u.conversion,
+                "isDefaultSale": u.is_default_sale,
+                "priceMode": u.price_mode,
+                "sellPrice": u.sell_price,
+                "barcodes": barcodes.join(", "),
+                "tiers": tiers,
+            });
+            (u.unit_name.clone(), unit)
+        })
+        .collect();
+    Ok(json!({
+        "code": p.code,
+        "name": p.name,
+        "genericName": p.generic_name,
+        "manufacturer": names.manufacturer,
+        "category": names.category,
+        "rack": names.rack,
+        "drugClass": p.drug_class,
+        "isOwa": p.is_owa,
+        "baseUnit": names.base_unit,
+        "minStockBase": p.min_stock_base,
+        "isActive": p.is_active,
+        "marginBp": p.margin_bp,
+        "lastCostX100": p.last_cost_x100,
+        "units": units,
+    }))
 }
 
 // ─── Validasi umum ───────────────────────────────────────────────────────────

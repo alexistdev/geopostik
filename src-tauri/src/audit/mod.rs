@@ -1,8 +1,27 @@
-//! Log audit (append-only) untuk aksi sensitif.
+//! Log audit (append-only) untuk aksi sensitif dan setiap perubahan data master.
+//! Dibaca lewat menu Sistem › Log (hak AUDIT_VIEW).
+
+pub mod commands;
+mod model;
+mod repo;
+
+#[cfg(test)]
+mod tests;
 
 use rusqlite::{Connection, params};
+use serde_json::{Value, json};
 
 use crate::error::AppResult;
+
+/// Aksi pada data. Aksi lama (sebelum menu Log) memakai nama berawalan entitas, misal `PRODUCT_CREATE`.
+pub const CREATE: &str = "CREATE";
+pub const UPDATE: &str = "UPDATE";
+pub const DELETE: &str = "DELETE";
+pub const ACTIVATE: &str = "ACTIVATE";
+pub const DEACTIVATE: &str = "DEACTIVATE";
+pub const PRICE_CHANGE: &str = "PRICE_CHANGE";
+/// Harga otomatis dihitung ulang karena data lain berubah (misal margin kategori).
+pub const PRICE_RECALC: &str = "PRICE_RECALC";
 
 #[derive(Default)]
 pub struct Entry<'a> {
@@ -30,4 +49,45 @@ pub fn log(conn: &Connection, entry: Entry<'_>) -> AppResult<()> {
         ],
     )?;
     Ok(())
+}
+
+/// Perubahan satu data, dicatat sebagai snapshot lengkap sebelum dan sesudah.
+pub struct Change<'a> {
+    pub user_id: i64,
+    pub action: &'a str,
+    pub entity: &'a str,
+    pub entity_id: i64,
+    /// `None` untuk data baru.
+    pub before: Option<Value>,
+    /// `None` untuk data yang dihapus.
+    pub after: Option<Value>,
+    pub reason: Option<&'a str>,
+}
+
+/// Catat perubahan dengan detail `{ code, name, before, after }`. Kode & nama diambil dari snapshot
+/// agar log tetap terbaca walau datanya kelak diubah atau dihapus. Simpan tanpa perubahan apa pun
+/// (snapshot sama persis) tidak dicatat.
+pub fn log_change(conn: &Connection, change: Change<'_>) -> AppResult<()> {
+    if change.before.is_some() && change.before == change.after {
+        return Ok(());
+    }
+    let current = change.after.as_ref().or(change.before.as_ref());
+    let field = |key: &str| current.and_then(|s| s.get(key)).cloned().unwrap_or(Value::Null);
+    log(
+        conn,
+        Entry {
+            user_id: Some(change.user_id),
+            action: change.action,
+            entity: Some(change.entity),
+            entity_id: Some(change.entity_id),
+            detail: Some(json!({
+                "code": field("code"),
+                "name": field("name"),
+                "before": change.before,
+                "after": change.after,
+            })),
+            reason: change.reason,
+            ..Default::default()
+        },
+    )
 }

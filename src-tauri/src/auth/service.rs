@@ -86,6 +86,17 @@ pub fn login(conn: &Connection, input: &LoginInput) -> AppResult<SessionUser> {
     session_for(conn, row.id, row.username, row.full_name)
 }
 
+pub fn logout(conn: &Connection, user: &SessionUser) -> AppResult<()> {
+    audit::log(
+        conn,
+        audit::Entry {
+            user_id: Some(user.id),
+            action: "LOGOUT",
+            ..Default::default()
+        },
+    )
+}
+
 fn session_for(conn: &Connection, id: i64, username: String, full_name: String) -> AppResult<SessionUser> {
     let roles = repo::roles_of(conn, id)?;
     let permissions = effective_permissions(&roles, settings::access(conn)?);

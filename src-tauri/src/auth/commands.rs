@@ -39,6 +39,9 @@ pub async fn login(state: State<'_, AppState>, input: LoginInput) -> AppResult<S
 
 #[tauri::command]
 pub async fn logout(state: State<'_, AppState>) -> AppResult<()> {
+    if let Some(user) = state.session() {
+        service::logout(&*state.db()?, &user)?;
+    }
     state.set_session(None);
     Ok(())
 }

@@ -631,3 +631,110 @@ fn barcodes_are_soft_deleted_and_unchanged_ones_kept() {
     // Hapus permanen ditolak oleh database.
     assert!(conn.execute("DELETE FROM product_barcodes", []).is_err());
 }
+
+// ─── Audit log ───────────────────────────────────────────────────────────────
+
+/// (aksi, entitas, detail) semua log perubahan data, urut dari yang pertama.
+fn audit_rows(conn: &Connection) -> Vec<(String, String, serde_json::Value)> {
+    let mut stmt = conn
+        .prepare("SELECT action, entity, detail FROM audit_logs WHERE entity IS NOT NULL ORDER BY id")
+        .unwrap();
+    stmt.query_map([], |r| {
+        let detail: String = r.get(2)?;
+        Ok((r.get(0)?, r.get(1)?, serde_json::from_str(&detail).unwrap()))
+    })
+    .unwrap()
+    .collect::<Result<_, _>>()
+    .unwrap()
+}
+
+#[test]
+fn master_changes_are_audited_with_before_and_after() {
+    let mut conn = setup();
+    let owner = user(&[Role::Owner]);
+    let input = |id, name: &str, margin| CategoryInput { id, name: name.into(), margin_bp: margin, is_active: true };
+
+    let cat = service::save_category(&mut conn, &owner, &input(None, "Vitamin", None)).unwrap();
+    // Simpan tanpa perubahan tidak dicatat.
+    service::save_category(&mut conn, &owner, &input(Some(cat.id), "Vitamin", None)).unwrap();
+    service::save_category(&mut conn, &owner, &input(Some(cat.id), "Vitamin & Suplemen", Some(3_000))).unwrap();
+    service::set_master_active(&conn, &owner, MasterKind::Category, cat.id, false).unwrap();
+    service::delete_master(&mut conn, &owner, MasterKind::Category, cat.id).unwrap();
+
+    let rows = audit_rows(&conn);
+    let actions: Vec<_> = rows.iter().map(|(a, e, _)| (a.as_str(), e.as_str())).collect();
+    assert_eq!(
+        actions,
+        [("CREATE", "categories"), ("UPDATE", "categories"), ("DEACTIVATE", "categories"), ("DELETE", "categories")]
+    );
+
+    let create = &rows[0].2;
+    assert!(create["before"].is_null());
+    assert_eq!((create["code"].as_str(), create["after"]["name"].as_str()), (Some("KTG0001"), Some("Vitamin")));
+
+    let update = &rows[1].2;
+    assert_eq!(update["before"]["name"], "Vitamin");
+    assert_eq!(update["after"]["name"], "Vitamin & Suplemen");
+    assert!(update["before"]["marginBp"].is_null());
+    assert_eq!(update["after"]["marginBp"], 3_000);
+
+    let delete = &rows[3].2;
+    assert_eq!(delete["before"]["name"], "Vitamin & Suplemen");
+    assert!(delete["after"].is_null());
+}
+
+#[test]
+fn product_and_price_changes_are_audited() {
+    let mut conn = setup();
+    let owner = user(&[Role::Owner]);
+    let cat = service::save_category(
+        &mut conn,
+        &owner,
+        &CategoryInput { id: None, name: "Analgesik".into(), margin_bp: Some(5_000), is_active: true },
+    )
+    .unwrap();
+    let mut input = paracetamol();
+    input.category_id = Some(cat.id);
+    let p = service::save_product(&mut conn, &owner, &input).unwrap().product;
+    let p = service::save_prices(&mut conn, &owner, &prices(&p, Some(15_050), None)).unwrap().product;
+    service::save_category(
+        &mut conn,
+        &owner,
+        &CategoryInput { id: Some(cat.id), name: "Analgesik".into(), margin_bp: Some(1_000), is_active: true },
+    )
+    .unwrap();
+    service::set_product_active(&conn, &owner, p.id, false).unwrap();
+    service::create_unit(&conn, &owner, "Jerigen").unwrap();
+
+    let rows = audit_rows(&conn);
+    let actions: Vec<_> = rows.iter().map(|(a, e, _)| (a.as_str(), e.as_str())).collect();
+    assert_eq!(
+        actions,
+        [
+            ("CREATE", "categories"),
+            ("CREATE", "products"),
+            ("PRICE_CHANGE", "products"),
+            ("UPDATE", "categories"),
+            ("PRICE_RECALC", "products"),
+            ("DEACTIVATE", "products"),
+            ("CREATE", "units"),
+        ]
+    );
+
+    let created = &rows[1].2["after"];
+    assert_eq!(created["category"], "Analgesik");
+    assert_eq!(created["units"]["Strip"]["barcodes"], "8991234567890");
+
+    let price = &rows[2].2;
+    assert!(price["before"]["lastCostX100"].is_null());
+    assert_eq!(price["after"]["lastCostX100"], 15_050);
+    assert_eq!(price["before"]["units"]["Strip"]["sellPrice"], 0);
+    assert_eq!(price["after"]["units"]["Strip"]["sellPrice"], 2_300);
+
+    let recalc = &rows[4].2;
+    assert_eq!(recalc["after"]["units"]["Strip"]["sellPrice"], 1_700);
+    let reason: String = conn
+        .query_row("SELECT reason FROM audit_logs WHERE action = 'PRICE_RECALC'", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(reason, "Margin kategori Analgesik diubah");
+}

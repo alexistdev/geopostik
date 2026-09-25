@@ -1,0 +1,135 @@
+.head {
+  margin-bottom: 1rem;
+
+  h2 {
+    margin: 0 0 0.25rem;
+  }
+}
+
+.muted {
+  color: var(--p-text-muted-color);
+}
+
+.mono {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.85rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+
+  .search input {
+    width: 18rem;
+  }
+}
+
+.date {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+
+  span {
+    color: var(--p-text-muted-color);
+  }
+}
+
+.spacer {
+  flex: 1;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.ellipsis {
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+td small {
+  display: block;
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: 0.4rem 1rem;
+  margin: 0 0 1.25rem;
+
+  dt {
+    color: var(--p-text-muted-color);
+  }
+
+  dd {
+    margin: 0;
+    user-select: text;
+  }
+}
+
+.changes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.diff {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0.75rem;
+  user-select: text;
+
+  th,
+  td {
+    text-align: left;
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--p-surface-200);
+    vertical-align: top;
+  }
+
+  th {
+    font-weight: 600;
+    background: var(--p-surface-50);
+  }
+
+  td:first-child {
+    width: 40%;
+    color: var(--p-text-muted-color);
+  }
+
+  tr.changed {
+    td.before {
+      background: color-mix(in srgb, var(--p-red-100) 70%, transparent);
+      text-decoration: line-through;
+      text-decoration-color: var(--p-red-400);
+    }
+
+    td.after {
+      background: color-mix(in srgb, var(--p-green-100) 70%, transparent);
+      font-weight: 600;
+    }
+  }
+}
+
+.raw {
+  max-height: 20rem;
+  overflow: auto;
+  padding: 0.75rem;
+  background: var(--p-surface-100);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  user-select: text;
+}

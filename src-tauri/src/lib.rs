@@ -88,6 +88,8 @@ pub fn run() {
             master::commands::product_save,
             master::commands::product_prices_save,
             master::commands::product_set_active,
+            audit::commands::audit_page,
+            audit::commands::audit_users,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

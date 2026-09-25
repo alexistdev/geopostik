@@ -8,7 +8,10 @@
   </div>
 
   <nav>
-    @for (item of navItems(); track item.path) {
+    @for (item of navItems(); track item.path; let i = $index) {
+      @if (item.group && item.group !== navItems()[i - 1]?.group) {
+        <div class="nav-group">{{ item.group }}</div>
+      }
       <a [routerLink]="item.path" routerLinkActive="active">
         <i [class]="item.icon"></i>
         <span>{{ item.label }}</span>

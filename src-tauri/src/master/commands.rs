@@ -87,8 +87,8 @@ pub async fn unit_list(state: State<'_, AppState>) -> AppResult<Vec<Unit>> {
 
 #[tauri::command]
 pub async fn unit_create(state: State<'_, AppState>, name: String) -> AppResult<Unit> {
-    state.require(Permission::ProductManage)?;
-    service::create_unit(&*state.db()?, &name)
+    let user = state.require(Permission::ProductManage)?;
+    service::create_unit(&*state.db()?, &user, &name)
 }
 
 #[tauri::command]

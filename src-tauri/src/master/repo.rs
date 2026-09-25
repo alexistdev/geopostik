@@ -68,6 +68,19 @@ pub fn page_categories(conn: &Connection, q: &MasterPageQuery) -> AppResult<(Vec
     Ok((rows, total))
 }
 
+pub fn get_category(conn: &Connection, id: i64) -> AppResult<Option<Category>> {
+    Ok(conn
+        .query_row(
+            &format!(
+                "SELECT id, code, name, margin_bp, is_active, {} FROM categories WHERE id = ?1 AND deleted_at IS NULL",
+                created_columns("categories")
+            ),
+            [id],
+            category_row,
+        )
+        .optional()?)
+}
+
 pub fn category_margin(conn: &Connection, id: i64) -> AppResult<Option<Option<i64>>> {
     Ok(conn
         .query_row(
@@ -236,6 +249,11 @@ impl NamedTable {
             NamedTable::Racks => "racks",
             NamedTable::Manufacturers => "manufacturers",
         }
+    }
+
+    /// Nama entitas di log audit.
+    pub fn entity(self) -> &'static str {
+        self.table()
     }
 
     pub fn coded(self) -> CodedTable {
@@ -506,6 +524,33 @@ pub fn find_product(conn: &Connection, id: i64) -> AppResult<Option<ProductRow>>
             },
         )
         .optional()?)
+}
+
+/// Nama pabrik, kategori, rak, dan satuan dasar obat (untuk snapshot audit yang mudah dibaca).
+pub struct ProductRefNames {
+    pub manufacturer: Option<String>,
+    pub category: Option<String>,
+    pub rack: Option<String>,
+    pub base_unit: Option<String>,
+}
+
+pub fn product_ref_names(conn: &Connection, id: i64) -> AppResult<ProductRefNames> {
+    Ok(conn.query_row(
+        "SELECT (SELECT name FROM manufacturers WHERE id = p.manufacturer_id),
+                (SELECT name FROM categories WHERE id = p.category_id),
+                (SELECT name FROM racks WHERE id = p.rack_id),
+                (SELECT name FROM units WHERE id = p.base_unit_id)
+         FROM products p WHERE p.id = ?1",
+        [id],
+        |r| {
+            Ok(ProductRefNames {
+                manufacturer: r.get(0)?,
+                category: r.get(1)?,
+                rack: r.get(2)?,
+                base_unit: r.get(3)?,
+            })
+        },
+    )?)
 }
 
 pub fn product_has_stock(conn: &Connection, product_id: i64) -> AppResult<bool> {

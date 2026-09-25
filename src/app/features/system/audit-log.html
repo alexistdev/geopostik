@@ -1,0 +1,176 @@
+<div class="head">
+  <div>
+    <h2>Log Aktivitas</h2>
+    <small class="muted">Setiap tambah, ubah, dan hapus data tercatat otomatis beserta isi sebelum dan sesudahnya. Log tidak bisa diubah atau dihapus.</small>
+  </div>
+</div>
+
+<div class="toolbar">
+  <p-iconfield class="search">
+    <p-inputicon class="pi pi-search" />
+    <input pInputText type="search" placeholder="Cari user, kode, nama, atau nilai" [(ngModel)]="q" (ngModelChange)="searchChanged()" />
+  </p-iconfield>
+
+  <label class="date">
+    <span>Dari</span>
+    <input pInputText type="date" [(ngModel)]="dateFrom" (ngModelChange)="load(0)" />
+  </label>
+  <label class="date">
+    <span>s/d</span>
+    <input pInputText type="date" [(ngModel)]="dateTo" (ngModelChange)="load(0)" />
+  </label>
+
+  <p-select [options]="entities" optionLabel="label" optionValue="value" [(ngModel)]="entity" (onChange)="load(0)" placeholder="Semua data" [showClear]="true" appendTo="body" />
+  <p-select [options]="actions" optionLabel="label" optionValue="value" [(ngModel)]="action" (onChange)="load(0)" placeholder="Semua aksi" [showClear]="true" appendTo="body" />
+  <p-select [options]="users()" optionLabel="fullName" optionValue="id" [(ngModel)]="userId" (onChange)="load(0)" placeholder="Semua user" [showClear]="true" [filter]="true" appendTo="body" />
+
+  @if (hasFilter) {
+    <p-button label="Reset" icon="pi pi-filter-slash" severity="secondary" [text]="true" (onClick)="resetFilter()" />
+  }
+  <span class="spacer"></span>
+  <p-button icon="pi pi-refresh" severity="secondary" [outlined]="true" (onClick)="load()" ariaLabel="Muat ulang" />
+</div>
+
+<p-table
+  [value]="rows()"
+  [lazy]="true"
+  (onLazyLoad)="pageChanged($event.first ?? 0, $event.rows ?? pageSize)"
+  [paginator]="true"
+  [first]="first()"
+  [rows]="pageSize"
+  [rowsPerPageOptions]="pageSizes"
+  [totalRecords]="total()"
+  [showCurrentPageReport]="true"
+  currentPageReportTemplate="Menampilkan {first}–{last} dari {totalRecords}"
+  [loading]="loading()"
+  [rowHover]="true"
+  size="small"
+>
+  <ng-template #header>
+    <tr>
+      <th style="width: 10.5rem">Waktu</th>
+      <th style="width: 11rem">User</th>
+      <th style="width: 10rem">Aksi</th>
+      <th style="width: 7rem">Data</th>
+      <th style="width: 18rem">Kode · Nama</th>
+      <th>Perubahan</th>
+    </tr>
+  </ng-template>
+  <ng-template #body let-row>
+    @let info = actionInfo(row.action);
+    <tr class="clickable" (click)="open(row)">
+      <td class="mono">{{ row.createdAt }}</td>
+      <td>
+        {{ row.fullName ?? '–' }}
+        @if (row.username) {
+          <small class="muted">&#64;{{ row.username }}</small>
+        }
+      </td>
+      <td><p-tag [value]="info.label" [severity]="info.severity" /></td>
+      <td>{{ entityLabel(row.entity) }}</td>
+      <td class="ellipsis">{{ codeName(row) }}</td>
+      <td class="ellipsis muted">{{ summarize(row) }}</td>
+    </tr>
+  </ng-template>
+  <ng-template #emptymessage>
+    <tr>
+      <td colspan="6" class="muted">{{ hasFilter ? 'Tidak ada log yang cocok dengan filter.' : 'Belum ada aktivitas tercatat.' }}</td>
+    </tr>
+  </ng-template>
+</p-table>
+
+@if (selected(); as row) {
+  @let d = detail()!;
+  @let info = actionInfo(row.action);
+  <p-dialog header="Detail log" [visible]="true" (visibleChange)="selected.set(null)" [modal]="true" [style]="{ width: '760px' }" [dismissableMask]="true">
+    <dl class="meta">
+      <dt>No. log</dt>
+      <dd class="mono">#{{ row.id }}</dd>
+      <dt>Waktu</dt>
+      <dd class="mono">{{ row.createdAt }}</dd>
+      <dt>User</dt>
+      <dd>{{ row.fullName ?? '–' }} @if (row.username) {<span class="muted">(&#64;{{ row.username }}, ID {{ row.userId }})</span>}</dd>
+      @if (row.authorizedBy) {
+        <dt>Diotorisasi oleh</dt>
+        <dd>{{ row.authorizedBy }}</dd>
+      }
+      <dt>Aksi</dt>
+      <dd><p-tag [value]="info.label" [severity]="info.severity" /> <span class="muted mono">{{ row.action }}</span></dd>
+      <dt>Data</dt>
+      <dd>
+        {{ entityLabel(row.entity) }}
+        @if (row.entityId != null) {
+          <span class="muted">(ID {{ row.entityId }})</span>
+        }
+      </dd>
+      @if (d.code || d.name) {
+        <dt>Kode · Nama</dt>
+        <dd>{{ codeName(row) }}</dd>
+      }
+      @if (row.reason) {
+        <dt>Keterangan</dt>
+        <dd>{{ row.reason }}</dd>
+      }
+    </dl>
+
+    @if (d.hasSnapshot) {
+      <div class="changes-head">
+        <strong>{{ d.before == null ? 'Isi data baru' : d.after == null ? 'Isi data yang dihapus' : 'Perubahan' }}</strong>
+        @if (d.before != null && d.after != null) {
+          <label class="switch">
+            <p-toggleswitch [ngModel]="!changedOnly()" (ngModelChange)="changedOnly.set(!$event)" />
+            Tampilkan semua field
+          </label>
+        }
+      </div>
+      <table class="diff">
+        <thead>
+          <tr>
+            <th>Field</th>
+            @if (d.before != null) {
+              <th>Sebelum</th>
+            }
+            @if (d.after != null) {
+              <th>Sesudah</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of changes(); track c.label) {
+            <tr [class.changed]="c.changed">
+              <td>{{ c.label }}</td>
+              @if (d.before != null) {
+                <td class="before">{{ c.before }}</td>
+              }
+              @if (d.after != null) {
+                <td class="after">{{ c.after }}</td>
+              }
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="3" class="muted">Tidak ada field yang berubah.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @else if (extraEntries(d.extra).length) {
+      <table class="diff">
+        <tbody>
+          @for (e of extraEntries(d.extra); track e.label) {
+            <tr>
+              <td>{{ e.label }}</td>
+              <td>{{ e.value }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    @if (d.raw) {
+      <p-button [label]="showRaw() ? 'Sembunyikan data mentah' : 'Lihat data mentah (JSON)'" icon="pi pi-code" severity="secondary" [text]="true" size="small" (onClick)="showRaw.set(!showRaw())" />
+      @if (showRaw()) {
+        <pre class="raw">{{ prettyRaw(d.raw) }}</pre>
+      }
+    }
+  </p-dialog>
+}
