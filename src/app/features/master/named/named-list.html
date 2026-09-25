@@ -1,114 +1,166 @@
 @let t = table();
-<div class="toolbar">
-  <p-iconfield>
-    <p-inputicon class="pi pi-search" />
-    <input
-      pInputText
-      type="search"
-      [placeholder]="'Cari atau scan kode ' + config().label.toLowerCase()"
-      [ngModel]="t.search()"
-      (ngModelChange)="t.searchChanged($event)"
+<section class="data-card">
+  <div class="toolbar">
+    <p-iconfield>
+      <p-inputicon class="pi pi-search" />
+      <input
+        pInputText
+        type="search"
+        [placeholder]="'Cari atau scan kode ' + config().label.toLowerCase()"
+        [ngModel]="t.search()"
+        (ngModelChange)="t.searchChanged($event)"
+      />
+    </p-iconfield>
+    <span class="hint"><i class="pi pi-info-circle"></i>{{ config().hint }}</span>
+    <p-button
+      [label]="t.selected.length ? 'Cetak label (' + t.selected.length + ')' : 'Cetak semua label'"
+      icon="pi pi-print"
+      severity="secondary"
+      [outlined]="true"
+      [disabled]="!t.total()"
+      (onClick)="printLabels()"
     />
-  </p-iconfield>
-  <span class="muted">{{ config().hint }}</span>
-  <span class="spacer"></span>
-  <p-button
-    [label]="t.selected.length ? 'Cetak label (' + t.selected.length + ')' : 'Cetak semua label'"
-    icon="pi pi-print"
-    severity="secondary"
-    [outlined]="true"
-    [disabled]="!t.total()"
-    (onClick)="printLabels()"
-  />
-  @if (canEdit) {
-    <p-button [label]="'Tambah ' + config().label" icon="pi pi-plus" (onClick)="open()" />
-  }
-</div>
+    @if (canEdit) {
+      <p-button [label]="'Tambah ' + config().label" icon="pi pi-plus" (onClick)="open()" />
+    }
+  </div>
 
-<p-table
-  [value]="t.rows()"
-  [(selection)]="t.selected"
-  dataKey="id"
-  [lazy]="true"
-  [lazyLoadOnInit]="false"
-  (onLazyLoad)="t.pageChanged($event.first ?? 0, $event.rows ?? t.pageSize())"
-  [paginator]="true"
-  [first]="t.first()"
-  [rows]="t.pageSize()"
-  [rowsPerPageOptions]="pageSizes"
-  [totalRecords]="t.total()"
-  [showCurrentPageReport]="true"
-  [currentPageReportTemplate]="pageReport"
-  [loading]="t.loading()"
-  size="small"
-  [rowHover]="true"
->
-  <ng-template #header>
-    <tr>
-      <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
-      <th style="width: 10rem">Kode</th>
-      <th>Nama</th>
-      <th style="width: 10rem">Dibuat</th>
-      <th style="width: 10rem">Dibuat oleh</th>
-      <th style="width: 8rem">Status</th>
-      @if (canEdit) {
-        <th style="width: 20rem"></th>
-      }
-    </tr>
-  </ng-template>
-  <ng-template #body let-item>
-    <tr>
-      <td><p-tableCheckbox [value]="item" /></td>
-      <td class="code">{{ item.code }}</td>
-      <td>{{ item.name }}</td>
-      <td>{{ item.createdAt | dateTime }}</td>
-      <td>{{ item.createdBy ?? '–' }}</td>
-      <td>
-        <p-tag [value]="item.isActive ? 'Aktif' : 'Nonaktif'" [severity]="item.isActive ? 'success' : 'secondary'" />
-      </td>
-      @if (canEdit) {
+  <p-table
+    [value]="t.rows()"
+    [(selection)]="t.selected"
+    dataKey="id"
+    [lazy]="true"
+    [lazyLoadOnInit]="false"
+    (onLazyLoad)="t.pageChanged($event.first ?? 0, $event.rows ?? t.pageSize())"
+    [paginator]="true"
+    [first]="t.first()"
+    [rows]="t.pageSize()"
+    [rowsPerPageOptions]="pageSizes"
+    [totalRecords]="t.total()"
+    [showCurrentPageReport]="true"
+    [currentPageReportTemplate]="pageReport"
+    [loading]="t.loading()"
+    [rowHover]="true"
+    styleClass="data-table"
+  >
+    <ng-template #header>
+      <tr>
+        <th style="width: 3.25rem"><p-tableHeaderCheckbox /></th>
+        <th style="width: 11rem">Kode</th>
+        <th>Nama</th>
+        <th style="width: 10rem">Dibuat</th>
+        <th style="width: 12rem">Dibuat oleh</th>
+        <th style="width: 8rem">Status</th>
+        @if (canEdit) {
+          <th style="width: 8.5rem"></th>
+        }
+      </tr>
+    </ng-template>
+    <ng-template #body let-item>
+      @let created = (item.createdAt | dateTime).split(' ');
+      <tr [class.inactive-row]="!item.isActive">
+        <td><p-tableCheckbox [value]="item" /></td>
+        <td><span class="cell-code">{{ item.code }}</span></td>
         <td>
-          <app-master-row-actions [kind]="config().kind" [label]="config().label" [row]="item" (edit)="open(item)" (changed)="t.load()" />
+          <div class="cell-name">
+            <span class="avatar">{{ item.name.charAt(0) }}</span>
+            {{ item.name }}
+          </div>
         </td>
-      }
-    </tr>
-  </ng-template>
-  <ng-template #emptymessage>
-    <tr>
-      <td colspan="7" class="muted">
-        {{ t.search() ? 'Tidak ada ' + config().label.toLowerCase() + ' yang cocok.' : 'Belum ada data ' + config().label.toLowerCase() + '.' }}
-      </td>
-    </tr>
-  </ng-template>
-</p-table>
+        <td>
+          <div class="cell-date">
+            {{ created[0] }}
+            @if (created[1]) {
+              <small>{{ created[1] }}</small>
+            }
+          </div>
+        </td>
+        <td>
+          @if (item.createdBy) {
+            <div class="cell-user"><span class="avatar">{{ item.createdBy.charAt(0) }}</span>{{ item.createdBy }}</div>
+          } @else {
+            <span class="muted">–</span>
+          }
+        </td>
+        <td>
+          <span class="status" [class.on]="item.isActive">{{ item.isActive ? 'Aktif' : 'Nonaktif' }}</span>
+        </td>
+        @if (canEdit) {
+          <td>
+            <app-master-row-actions [kind]="config().kind" [label]="config().label" [row]="item" (edit)="open(item)" (changed)="t.load()" />
+          </td>
+        }
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="7">
+          <i class="pi pi-inbox empty-icon"></i>
+          <div>{{ t.search() ? 'Tidak ada ' + config().label.toLowerCase() + ' yang cocok.' : 'Belum ada data ' + config().label.toLowerCase() + '.' }}</div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>
 
 @if (form; as f) {
   <p-dialog
-    [header]="(f.id ? 'Ubah ' : 'Tambah ') + config().label.toLowerCase()"
     [visible]="true"
     (visibleChange)="form = null"
     [modal]="true"
-    [style]="{ width: '420px' }"
+    [draggable]="false"
+    [style]="{ width: '480px' }"
+    styleClass="master-dialog"
   >
-    <div class="field">
-      <label for="namedName">Nama</label>
-      <input pInputText id="namedName" [(ngModel)]="f.name" [placeholder]="config().placeholder" autofocus (keydown.enter)="save()" />
-    </div>
-    <div class="field">
-      <label>Kode</label>
-      @if (f.code) {
-        <div class="preview"><app-barcode [value]="f.code" /></div>
-      } @else {
-        <small>Dibuat otomatis oleh sistem saat disimpan, lalu bisa dicetak sebagai label barcode.</small>
-      }
-    </div>
-    <label class="check">
-      <p-checkbox [(ngModel)]="f.isActive" [binary]="true" />
-      Aktif (muncul sebagai pilihan saat tambah obat)
+    <ng-template #header>
+      <div class="dlg-head">
+        <span class="dlg-icon"><i [class]="config().icon"></i></span>
+        <div class="dlg-title">
+          <span class="dlg-name">{{ f.id ? f.name || config().label : config().label + ' baru' }}</span>
+          @if (f.code) {
+            <span class="dlg-meta">
+              <span class="mono">{{ f.code }}</span>
+              <p-tag [value]="f.isActive ? 'Aktif' : 'Nonaktif'" [severity]="f.isActive ? 'success' : 'secondary'" />
+            </span>
+          } @else {
+            <span class="dlg-meta">Isi nama {{ config().label.toLowerCase() }}; kode dibuat otomatis.</span>
+          }
+        </div>
+      </div>
+    </ng-template>
+
+    <section class="card">
+      <header class="card-head">
+        <span class="card-icon"><i class="pi pi-info-circle"></i></span>
+        <div>
+          <h3>Informasi {{ config().label.toLowerCase() }}</h3>
+          <p>{{ config().hint }}</p>
+        </div>
+      </header>
+      <div class="field">
+        <label for="namedName">Nama <span class="req">*</span></label>
+        <input pInputText id="namedName" [(ngModel)]="f.name" [placeholder]="config().placeholder" autofocus (keydown.enter)="save()" />
+      </div>
+      <div class="code-card">
+        @if (f.code) {
+          <app-barcode [value]="f.code" />
+        } @else {
+          <i class="pi pi-barcode"></i>
+          <small>Kode dibuat otomatis oleh sistem saat disimpan, lalu bisa dicetak sebagai label barcode.</small>
+        }
+      </div>
+    </section>
+
+    <label class="switch-row">
+      <span>
+        Aktif
+        <small>Muncul sebagai pilihan saat tambah/ubah obat.</small>
+      </span>
+      <p-toggleswitch [(ngModel)]="f.isActive" />
     </label>
 
     <ng-template #footer>
-      <p-button label="Batal" severity="secondary" [text]="true" (onClick)="form = null" />
+      <p-button label="Batal" severity="secondary" [outlined]="true" (onClick)="form = null" />
       <p-button label="Simpan" icon="pi pi-check" [loading]="saving()" (onClick)="save()" />
     </ng-template>
   </p-dialog>

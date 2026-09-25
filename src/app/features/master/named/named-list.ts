@@ -1,13 +1,13 @@
 import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
-import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 
 import type { NamedItem } from '../../../bindings/NamedItem';
 import type { MasterPageQuery } from '../../../bindings/MasterPageQuery';
@@ -30,6 +30,7 @@ const KINDS: Record<
   {
     kind: MasterKind;
     label: string;
+    icon: string;
     hint: string;
     placeholder: string;
     list: () => Promise<NamedItem[]>;
@@ -40,6 +41,7 @@ const KINDS: Record<
   rack: {
     kind: 'RACK',
     label: 'Rak',
+    icon: 'pi pi-th-large',
     hint: 'Lokasi penyimpanan obat, dipilih saat tambah/ubah obat dan dicetak di lembar stok opname.',
     placeholder: 'Misal: A1, Etalase Depan, Kulkas',
     list: masterApi.rackList,
@@ -49,6 +51,7 @@ const KINDS: Record<
   manufacturer: {
     kind: 'MANUFACTURER',
     label: 'Pabrik',
+    icon: 'pi pi-building',
     hint: 'Pabrik pembuat obat, dipilih saat tambah/ubah obat.',
     placeholder: 'Misal: Kimia Farma',
     list: masterApi.manufacturerList,
@@ -71,42 +74,21 @@ interface Form {
   imports: [
     FormsModule,
     ButtonModule,
-    CheckboxModule,
     DialogModule,
     IconFieldModule,
     InputIconModule,
     InputTextModule,
     TableModule,
     TagModule,
+    ToggleSwitchModule,
     Barcode,
     DateTimePipe,
     MasterRowActions,
   ],
   templateUrl: './named-list.html',
   styles: `
-    .toolbar {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 0.75rem;
-    }
-    .spacer {
-      flex: 1;
-    }
     .muted {
       color: var(--p-text-muted-color);
-    }
-    .check {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .code {
-      font-family: ui-monospace, Consolas, monospace;
-    }
-    .preview {
-      text-align: center;
-      margin-top: 0.5rem;
     }
   `,
 })

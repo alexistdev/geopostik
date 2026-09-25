@@ -1,7 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
-import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
@@ -9,6 +8,7 @@ import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 
 import type { Category } from '../../../bindings/Category';
 import { masterApi } from '../../../core/api/master.api';
@@ -34,7 +34,6 @@ interface CategoryForm {
   imports: [
     FormsModule,
     ButtonModule,
-    CheckboxModule,
     DialogModule,
     IconFieldModule,
     InputIconModule,
@@ -42,38 +41,15 @@ interface CategoryForm {
     InputTextModule,
     TableModule,
     TagModule,
+    ToggleSwitchModule,
     Barcode,
     DateTimePipe,
     MasterRowActions,
   ],
   templateUrl: './category-list.html',
   styles: `
-    .toolbar {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 0.75rem;
-    }
-    .spacer {
-      flex: 1;
-    }
-    .code {
-      font-family: ui-monospace, Consolas, monospace;
-    }
-    .preview {
-      text-align: center;
-      margin: 0.5rem 0 1rem;
-    }
     .muted {
       color: var(--p-text-muted-color);
-    }
-    .check {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    p-inputnumber {
-      width: 100%;
     }
   `,
 })

@@ -53,6 +53,470 @@ textarea,
   width: 100%;
 }
 
+// ─── Tabel data modern (Master Data) ─────────────────────────────────────────
+// Kartu berisi toolbar + p-table (styleClass="data-table") + paginator.
+
+.data-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--p-content-background);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 14px;
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.04),
+    0 4px 16px -4px rgb(15 23 42 / 0.06);
+  overflow: hidden;
+
+  > .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--p-content-border-color);
+
+    p-iconfield input {
+      width: 300px;
+      border-radius: 999px;
+    }
+
+    // Keterangan mengisi ruang kosong antara pencarian dan tombol.
+    .hint {
+      flex: 1;
+      min-width: 12rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      color: var(--p-text-muted-color);
+    }
+  }
+}
+
+.p-datatable.data-table {
+  // Header hijau solid (senada tab aktif) agar judul kolom jelas terbaca.
+  .p-datatable-thead > tr > th {
+    padding: 0.75rem 1rem;
+    background: var(--p-primary-700);
+    border-color: var(--p-primary-800);
+    color: #fff;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+
+    // Checkbox "pilih semua" tetap terlihat di atas latar hijau.
+    .p-checkbox-box {
+      border-color: rgb(255 255 255 / 0.7);
+      background: transparent;
+    }
+
+    .p-checkbox-checked .p-checkbox-box {
+      border-color: #fff;
+      background: #fff;
+    }
+
+    .p-checkbox-checked .p-checkbox-icon {
+      color: var(--p-primary-700);
+    }
+  }
+
+  .p-datatable-tbody > tr {
+    transition: background-color 0.12s;
+
+    > td {
+      padding: 0.65rem 1rem;
+      border-color: var(--p-content-border-color);
+      vertical-align: middle;
+    }
+
+    &:last-child > td {
+      border-bottom: 0;
+    }
+
+    &.p-datatable-row-selected {
+      background: color-mix(in srgb, var(--p-primary-color) 8%, transparent);
+      color: inherit;
+    }
+  }
+
+  // Hover lembut dengan garis aksen di kiri.
+  &.p-datatable-hoverable .p-datatable-tbody > tr:not(.p-datatable-row-selected):hover {
+    background: color-mix(in srgb, var(--p-primary-color) 4%, transparent);
+    color: inherit;
+  }
+
+  .p-datatable-tbody > tr > td:first-child {
+    box-shadow: inset 3px 0 0 transparent;
+    transition: box-shadow 0.12s;
+  }
+
+  .p-datatable-tbody > tr:hover > td:first-child,
+  .p-datatable-tbody > tr.p-datatable-row-selected > td:first-child {
+    box-shadow: inset 3px 0 0 var(--p-primary-color);
+  }
+
+  .p-datatable-paginator-bottom {
+    border-top: 1px solid var(--p-content-border-color);
+    border-bottom: 0;
+
+    .p-paginator {
+      padding: 0.6rem 1rem;
+      background: var(--p-surface-50);
+    }
+  }
+
+  .p-datatable-empty-message td {
+    padding: 3rem 1rem;
+    text-align: center;
+    color: var(--p-text-muted-color);
+  }
+
+  // ── Isi sel ──
+
+  .cell-code {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 0.78rem;
+    color: var(--p-text-color);
+    background: var(--p-surface-100);
+    border: 1px solid var(--p-content-border-color);
+    border-radius: 6px;
+  }
+
+  .cell-name {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    font-weight: 600;
+  }
+
+  .avatar {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--p-primary-700);
+    background: var(--p-primary-100);
+    border-radius: 9px;
+    text-transform: uppercase;
+  }
+
+  .cell-date {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+
+    small {
+      color: var(--p-text-muted-color);
+      font-size: 0.75rem;
+    }
+  }
+
+  .cell-user {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    .avatar {
+      width: 1.6rem;
+      height: 1.6rem;
+      font-size: 0.7rem;
+      border-radius: 50%;
+      color: var(--p-surface-600);
+      background: var(--p-surface-200);
+    }
+  }
+
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0.65rem 0.2rem 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 999px;
+    color: var(--p-surface-600);
+    background: var(--p-surface-100);
+
+    &::before {
+      content: '';
+      width: 0.45rem;
+      height: 0.45rem;
+      border-radius: 50%;
+      background: var(--p-surface-400);
+    }
+
+    &.on {
+      color: var(--p-emerald-700);
+      background: var(--p-emerald-50);
+
+      &::before {
+        background: var(--p-emerald-500);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-emerald-500) 20%, transparent);
+      }
+    }
+  }
+
+  .margin {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--p-primary-700);
+    background: var(--p-primary-50);
+    border-radius: 6px;
+
+    &.default {
+      color: var(--p-text-muted-color);
+      background: var(--p-surface-100);
+    }
+  }
+
+  .empty-icon {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 2rem;
+    opacity: 0.4;
+  }
+
+  .muted {
+    color: var(--p-text-muted-color);
+  }
+
+  .inactive-row .cell-name,
+  .inactive-row .cell-code {
+    opacity: 0.55;
+  }
+}
+
+.app-dark .p-datatable.data-table {
+  .p-datatable-thead > tr > th {
+    background: var(--p-primary-800);
+    border-color: var(--p-primary-900);
+  }
+
+  .p-datatable-paginator-bottom .p-paginator {
+    background: var(--p-surface-900);
+  }
+
+  .cell-code {
+    background: var(--p-surface-800);
+  }
+
+  .avatar {
+    color: var(--p-primary-200);
+    background: color-mix(in srgb, var(--p-primary-500) 25%, transparent);
+  }
+
+  .margin {
+    color: var(--p-primary-200);
+    background: color-mix(in srgb, var(--p-primary-500) 18%, transparent);
+  }
+
+  .cell-user .avatar,
+  .margin.default,
+  .status {
+    color: var(--p-surface-300);
+    background: var(--p-surface-800);
+  }
+
+  .status.on {
+    color: var(--p-emerald-300);
+    background: color-mix(in srgb, var(--p-emerald-500) 15%, transparent);
+  }
+}
+
+// ─── Dialog Master Data (gaya mengikuti dialog Obat) ─────────────────────────
+
+.master-dialog {
+  .p-dialog-header {
+    padding: 1.25rem 1.5rem 1rem;
+    border-bottom: 1px solid var(--p-content-border-color);
+  }
+
+  .p-dialog-content {
+    padding: 0.25rem 1.5rem 1.25rem;
+  }
+
+  .p-dialog-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--p-content-border-color);
+    background: var(--p-surface-50);
+  }
+
+  .dlg-head {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    min-width: 0;
+  }
+
+  .dlg-icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 12px;
+    background: var(--p-primary-50);
+    color: var(--p-primary-600);
+    font-size: 1.25rem;
+  }
+
+  .dlg-title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .dlg-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .dlg-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--p-text-muted-color);
+    font-size: 0.85rem;
+  }
+
+  .mono {
+    font-family: ui-monospace, Consolas, monospace;
+    font-weight: 600;
+    color: var(--p-text-color);
+  }
+
+  .card {
+    margin-top: 1rem;
+    padding: 1rem 1.125rem 0.25rem;
+    border: 1px solid var(--p-content-border-color);
+    border-radius: 12px;
+    background: var(--p-content-background);
+  }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+
+    h3 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    p {
+      margin: 0.125rem 0 0;
+      font-size: 0.8rem;
+      color: var(--p-text-muted-color);
+    }
+  }
+
+  .card-icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 8px;
+    background: var(--p-surface-100);
+    color: var(--p-text-muted-color);
+  }
+
+  .req {
+    color: var(--p-red-500);
+  }
+
+  p-inputnumber {
+    width: 100%;
+  }
+
+  // Kode: pratinjau barcode atau keterangan dibuat otomatis.
+  .code-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    margin-bottom: 1rem;
+    padding: 0.875rem;
+    border: 1px dashed var(--p-surface-300);
+    border-radius: 10px;
+    background: var(--p-surface-50);
+    text-align: center;
+
+    > i {
+      font-size: 1.75rem;
+      color: var(--p-surface-400);
+    }
+
+    small {
+      color: var(--p-text-muted-color);
+      line-height: 1.35;
+    }
+
+    app-barcode {
+      padding: 0.5rem 0.75rem;
+      background: #fff;
+      border-radius: 6px;
+    }
+  }
+
+  // Baris status Aktif dengan toggle.
+  .switch-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1rem 0 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--p-content-border-color);
+    border-radius: 12px;
+    cursor: pointer;
+
+    span {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      gap: 0.125rem;
+      font-weight: 600;
+    }
+
+    small {
+      font-weight: 400;
+      color: var(--p-text-muted-color);
+    }
+  }
+}
+
+.app-dark .master-dialog {
+  .p-dialog-footer,
+  .code-card {
+    background: var(--p-surface-900);
+  }
+
+  .dlg-icon {
+    color: var(--p-primary-200);
+    background: color-mix(in srgb, var(--p-primary-500) 25%, transparent);
+  }
+
+  .card-icon {
+    background: var(--p-surface-800);
+  }
+}
+
 // ─── Cetak label barcode (lihat shared/label-print.ts) ───────────────────────
 
 #print-area {

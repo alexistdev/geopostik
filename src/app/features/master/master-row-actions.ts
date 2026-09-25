@@ -19,18 +19,33 @@ export interface MasterRow {
   selector: 'app-master-row-actions',
   imports: [ButtonModule, TooltipModule],
   template: `
-    <p-button icon="pi pi-pencil" label="Edit" size="small" [text]="true" (onClick)="edit.emit()" />
+    <p-button icon="pi pi-pencil" size="small" [rounded]="true" [text]="true" pTooltip="Edit" tooltipPosition="top" ariaLabel="Edit" (onClick)="edit.emit()" />
     <p-button
       [icon]="row().isActive ? 'pi pi-ban' : 'pi pi-check-circle'"
-      [label]="row().isActive ? 'Nonaktifkan' : 'Aktifkan'"
       size="small"
-      severity="secondary"
+      [severity]="row().isActive ? 'secondary' : 'success'"
+      [rounded]="true"
       [text]="true"
+      [pTooltip]="row().isActive ? 'Nonaktifkan' : 'Aktifkan'"
+      tooltipPosition="top"
+      [ariaLabel]="row().isActive ? 'Nonaktifkan' : 'Aktifkan'"
       (onClick)="toggleActive()"
     />
-    <p-button icon="pi pi-trash" label="Hapus" size="small" severity="danger" [text]="true" (onClick)="confirmDelete()" />
+    <p-button icon="pi pi-trash" size="small" severity="danger" [rounded]="true" [text]="true" pTooltip="Hapus" tooltipPosition="top" ariaLabel="Hapus" (onClick)="confirmDelete()" />
   `,
-  styles: ':host { display: flex; gap: 0.25rem; justify-content: flex-end; }',
+  styles: `
+    :host {
+      display: flex;
+      gap: 0.125rem;
+      justify-content: flex-end;
+      opacity: 0.55;
+      transition: opacity 0.12s;
+    }
+    :host-context(tr:hover),
+    :host(:focus-within) {
+      opacity: 1;
+    }
+  `,
 })
 export class MasterRowActions {
   private readonly notify = inject(Notify);
