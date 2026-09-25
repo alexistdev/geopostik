@@ -1,0 +1,35 @@
+<aside class="sidebar">
+  <div class="brand">
+    <i class="pi pi-plus-circle"></i>
+    <span>GeoPOSTik</span>
+  </div>
+
+  <nav>
+    @for (item of navItems(); track item.path) {
+      <a [routerLink]="item.path" routerLinkActive="active">
+        <i [class]="item.icon"></i>
+        <span>{{ item.label }}</span>
+        @if (item.hotkey) {
+          <kbd>{{ item.hotkey }}</kbd>
+        }
+      </a>
+    }
+  </nav>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div class="user">
+      <i class="pi pi-user"></i>
+      <div>
+        <strong>{{ auth.user()?.fullName }}</strong>
+        <small>{{ auth.roleLabel() }}</small>
+      </div>
+    </div>
+    <p-button label="Keluar" icon="pi pi-sign-out" severity="secondary" [text]="true" (onClick)="logout()" />
+  </header>
+
+  <main class="content">
+    <router-outlet />
+  </main>
+</div>

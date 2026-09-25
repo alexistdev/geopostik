@@ -1,0 +1,20 @@
+<form class="card" [formGroup]="form" (ngSubmit)="submit()">
+  <h1 class="title">GeoPOSTik</h1>
+  <p class="subtitle">Masuk untuk melanjutkan</p>
+
+  @if (error(); as message) {
+    <p-message severity="error">{{ message }}</p-message>
+  }
+
+  <div class="field">
+    <label for="username">Username</label>
+    <input pInputText id="username" formControlName="username" autocomplete="username" autofocus />
+  </div>
+
+  <div class="field">
+    <label for="password">Password</label>
+    <input pInputText id="password" type="password" formControlName="password" autocomplete="current-password" />
+  </div>
+
+  <p-button type="submit" label="Masuk" icon="pi pi-sign-in" [loading]="loading()" [fluid]="true" />
+</form>

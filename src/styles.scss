@@ -1,0 +1,54 @@
+// Gaya global. Warna mengikuti token tema PrimeNG (--p-*).
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--p-text-color);
+  background: var(--p-surface-100);
+}
+
+// Aplikasi desktop: teks tidak ikut terseleksi saat klik, kecuali di input.
+body {
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable] {
+  user-select: text;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 1rem;
+
+  label {
+    font-weight: 600;
+  }
+
+  small {
+    color: var(--p-text-muted-color);
+  }
+
+  input {
+    width: 100%;
+  }
+}
+
+.w-full {
+  width: 100%;
+}

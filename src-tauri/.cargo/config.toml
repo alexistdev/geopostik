@@ -1,0 +1,4 @@
+# ts-rs: tipe TypeScript hasil `cargo test` ditulis ke frontend.
+[env]
+TS_RS_EXPORT_DIR = { value = "../src/app/bindings", relative = true, force = true }
+TS_RS_LARGE_INT = "number"

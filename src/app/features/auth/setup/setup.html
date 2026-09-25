@@ -1,0 +1,67 @@
+<form class="card wide" [formGroup]="form" (ngSubmit)="submit()">
+  <h1 class="title">Selamat datang di GeoPOSTik</h1>
+  <p class="subtitle">Setup awal: isi nama apotek dan buat akun pemilik.</p>
+
+  @if (error(); as message) {
+    <p-message severity="error">{{ message }}</p-message>
+  }
+
+  <div class="field">
+    <label for="pharmacyName">Nama apotek</label>
+    <input pInputText id="pharmacyName" formControlName="pharmacyName" autofocus [invalid]="invalid('pharmacyName')" />
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label for="fullName">Nama lengkap pemilik</label>
+      <input pInputText id="fullName" formControlName="fullName" [invalid]="invalid('fullName')" />
+    </div>
+    <div class="field">
+      <label for="username">Username</label>
+      <input pInputText id="username" formControlName="username" autocomplete="username" [invalid]="invalid('username')" />
+      <small>3–32 karakter: huruf, angka, titik, garis bawah</small>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label for="password">Password</label>
+      <input pInputText id="password" type="password" formControlName="password" autocomplete="new-password" [invalid]="invalid('password')" />
+      <small>Minimal 6 karakter</small>
+    </div>
+    <div class="field">
+      <label for="passwordConfirm">Ulangi password</label>
+      <input
+        pInputText
+        id="passwordConfirm"
+        type="password"
+        formControlName="passwordConfirm"
+        autocomplete="new-password"
+        [invalid]="form.hasError('passwordMismatch') && form.controls.passwordConfirm.touched"
+      />
+      @if (form.hasError('passwordMismatch') && form.controls.passwordConfirm.touched) {
+        <small class="error">Password tidak sama</small>
+      }
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="pin">PIN otorisasi</label>
+    <input pInputText id="pin" type="password" inputmode="numeric" maxlength="6" formControlName="pin" [invalid]="invalid('pin')" />
+    <small>4–6 digit angka. Dipakai untuk menyetujui void, diskon besar, dan membuka kunci layar.</small>
+  </div>
+
+  <div class="check">
+    <p-checkbox inputId="alsoPharmacist" formControlName="alsoPharmacist" [binary]="true" />
+    <label for="alsoPharmacist">Saya juga apoteker di apotek ini</label>
+  </div>
+
+  @if (alsoPharmacist()) {
+    <div class="field">
+      <label for="licenseNumber">Nomor SIPA</label>
+      <input pInputText id="licenseNumber" formControlName="licenseNumber" />
+    </div>
+  }
+
+  <p-button type="submit" label="Simpan & Mulai" icon="pi pi-check" [loading]="loading()" [fluid]="true" />
+</form>

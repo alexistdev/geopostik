@@ -30,11 +30,20 @@ tidak ada port HTTP. Frontend dan backend berjalan dalam satu proses:
 | Komponen | Versi |
 |---|---|
 | Tauri | 2.x (stabil, CLI 2.11). Tauri 3 masih alpha, tidak dipakai |
-| Angular | 22.x (standalone components + signals, tanpa NgModule) |
-| PrimeNG | 22.x (cocok dengan Angular 22) |
+| Angular | **21.x** (standalone components + signals, zoneless, tanpa NgModule) |
+| PrimeNG | **21.x, dikunci di bawah 22** |
+| PrimeIcons | **7.x, dikunci di bawah 8** |
 | Rust | stable (edisi 2024) |
-| Node.js | LTS terbaru (untuk build Angular saja; tidak ikut ke aplikasi jadi) |
+| Node.js | 22 / 24 / 26 (untuk build Angular saja; tidak ikut ke aplikasi jadi) |
 | SQLite | ikut ter-compile lewat `rusqlite` fitur `bundled` (FTS5 aktif) |
+
+**Kenapa bukan Angular 22 + PrimeNG 22?** Mulai PrimeNG 22 dan PrimeIcons 8, lisensinya
+berubah dari MIT menjadi "PrimeUI License" yang butuh license key (Community gratis harus
+diperpanjang tiap tahun). Tanpa key yang valid muncul banner "Invalid PrimeUI License",
+yang berisiko tampil di komputer kasir klien bila key kedaluwarsa. PrimeNG 21, PrimeIcons 7,
+dan paket `@primeuix/*` yang dipakainya masih MIT. PrimeNG 21 hanya mendukung Angular 21,
+sehingga Angular ikut di versi 21. **Jangan menaikkan ke PrimeNG ≥ 22 / PrimeIcons ≥ 8**
+tanpa memutuskan ulang soal lisensi.
 
 ## 3. Struktur folder
 
@@ -110,7 +119,7 @@ Setiap modul domain di Rust punya tiga lapis:
 | Printer | ESC/POS dibuat sendiri + crate `windows` (spooler) & `serialport` | – |
 | Log | `tracing`, `tracing-appender` (file harian) | – |
 | Plugin Tauri | `single-instance`, `dialog` (pilih file/folder), `fs` terbatas | `@tauri-apps/api` |
-| UI | – | PrimeNG + PrimeIcons, tema PrimeNG (preset Aura) |
+| UI | – | PrimeNG 21 + PrimeIcons 7, tema preset Aura (warna utama emerald) |
 
 ## 5. Prinsip
 

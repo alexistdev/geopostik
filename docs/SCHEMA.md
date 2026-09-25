@@ -183,7 +183,7 @@ berbeda. Di layar tetap bisa ditampilkan dikelompokkan per nomor batch.
 | unit_cost_x100 | INTEGER | HPP per satuan terkecil |
 | qty_on_hand_base | INTEGER | **ringkasan**, hanya diubah oleh trigger kartu stok. `CHECK (qty_on_hand_base >= 0)` |
 | is_locked | INTEGER | kunci manual (recall, rusak, menunggu pemusnahan) |
-| source_type, source_id | TEXT, INTEGER | `OPENING` / `PURCHASE` + id baris asal |
+| source_type, source_id | TEXT, INTEGER | `OPENING` / `PURCHASE` / `ADJUSTMENT` (batch baru saat opname) + id baris asal |
 
 Batch expired **tidak** perlu di-update statusnya; kondisi "bisa dijual" dihitung:
 `qty_on_hand_base > 0 AND is_locked = 0 AND expiry_date > date('now','localtime')`.
@@ -243,7 +243,7 @@ Saat `APPROVED`: batch baru dibuat, lalu satu `stock_movements` per selisih
 (`OPENING` atau `ADJUSTMENT`).
 
 ### `destructions` + `destruction_items` (Tahap 2)
-Header: number, destruction_date, witnesses, note, created_by, approved_by.
+Header: number, destruction_date, witnesses, note, status (`DRAFT`/`APPROVED`/`CANCELLED`), created_by, approved_by.
 Item: batch_id, qty_base → movement `DESTRUCTION`.
 
 ---
@@ -287,7 +287,7 @@ Stok baru bertambah saat `POSTED`. Draft boleh disimpan setengah jadi.
 Apotek **PKP** → HPP tanpa PPN. Diskon faktur tingkat header dialokasikan proporsional ke baris.
 
 ### `supplier_payments` (Tahap 2)
-supplier_id, purchase_id, payment_date, amount, method, note, created_by.
+supplier_id, purchase_id, payment_date, amount, method (`CASH`/`TRANSFER`/`GIRO`), note, created_by.
 Sisa hutang = `grand_total − SUM(payments) − SUM(retur yang memotong hutang)`.
 
 ---

@@ -1,0 +1,54 @@
+// Gaya bersama halaman login & setup awal.
+:host {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem;
+  background: linear-gradient(135deg, var(--p-primary-700), var(--p-primary-900));
+}
+
+.card {
+  width: 100%;
+  max-width: 400px;
+  padding: 2rem;
+  border-radius: 12px;
+  background: var(--p-surface-0);
+  box-shadow: 0 10px 40px rgb(0 0 0 / 25%);
+
+  &.wide {
+    max-width: 560px;
+  }
+}
+
+.title {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.subtitle {
+  margin: 0 0 1.5rem;
+  color: var(--p-text-muted-color);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 1rem;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+p-message {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+small.error {
+  color: var(--p-red-600);
+}
