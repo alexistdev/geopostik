@@ -67,6 +67,8 @@
         <td>
           @if (c.marginBp != null) {
             {{ bpToPercent(c.marginBp) }}%
+          } @else if (defaultMarginBp() != null) {
+            {{ bpToPercent(defaultMarginBp()) }}% <span class="muted">(default)</span>
           } @else {
             <span class="muted">default</span>
           }
@@ -114,7 +116,7 @@
     @if (canEditMargin) {
       <div class="field">
         <label for="catMargin">Margin (%)</label>
-        <p-inputnumber inputId="catMargin" [(ngModel)]="f.marginPercent" [maxFractionDigits]="2" suffix="%" locale="id-ID" [min]="0" placeholder="Ikut default" />
+        <p-inputnumber inputId="catMargin" [(ngModel)]="f.marginPercent" [maxFractionDigits]="2" suffix="%" locale="id-ID" [min]="0" [placeholder]="defaultMarginBp() != null ? 'Ikut default (' + bpToPercent(defaultMarginBp()) + '%)' : 'Ikut default'" />
       </div>
     }
     <label class="check">

@@ -139,6 +139,8 @@ pub struct MasterPageQuery {
 pub struct CategoryPage {
     pub rows: Vec<Category>,
     pub total: i64,
+    /// Margin global yang dipakai kategori tanpa margin sendiri. `None` bila user tidak berhak melihat margin.
+    pub default_margin_bp: Option<i64>,
 }
 
 #[derive(Debug, Serialize, TS)]

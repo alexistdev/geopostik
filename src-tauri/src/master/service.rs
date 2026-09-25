@@ -49,10 +49,13 @@ pub fn list_categories(conn: &Connection, access: PriceAccess) -> AppResult<Vec<
 
 pub fn page_categories(conn: &Connection, access: PriceAccess, query: &MasterPageQuery) -> AppResult<CategoryPage> {
     let (mut rows, total) = repo::page_categories(conn, query)?;
-    if !access.view_margin() {
+    let default_margin_bp = if access.view_margin() {
+        Some(settings::price(conn)?.default_margin_bp)
+    } else {
         rows.iter_mut().for_each(|c| c.margin_bp = None);
-    }
-    Ok(CategoryPage { rows, total })
+        None
+    };
+    Ok(CategoryPage { rows, total, default_margin_bp })
 }
 
 pub fn save_category(conn: &mut Connection, user: &SessionUser, input: &CategoryInput) -> AppResult<Category> {

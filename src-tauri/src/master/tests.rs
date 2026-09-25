@@ -543,8 +543,10 @@ fn master_pages_are_paginated_and_searchable() {
     let q = MasterPageQuery { q: Some("vit".into()), offset: 0, limit: 10 };
     let for_owner = service::page_categories(&conn, PriceAccess::of(&owner), &q).unwrap();
     assert_eq!(for_owner.rows[0].margin_bp, Some(3_000));
+    assert_eq!(for_owner.default_margin_bp, Some(2_000));
     let for_ttk = service::page_categories(&conn, PriceAccess::of(&user(&[Role::Technician])), &q).unwrap();
     assert_eq!(for_ttk.rows[0].margin_bp, None);
+    assert_eq!(for_ttk.default_margin_bp, None);
 }
 
 #[test]

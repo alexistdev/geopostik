@@ -87,8 +87,16 @@ export class CategoryList {
 
   protected readonly pageSizes = MASTER_PAGE_SIZES;
   protected readonly pageReport = PAGE_REPORT;
-  protected readonly table = new MasterTable<Category>(masterApi.categoryPage, masterApi.categoryList, (e) =>
-    this.notify.error(e),
+  /** Margin global untuk kategori tanpa margin sendiri, dari halaman terakhir yang dimuat. */
+  protected readonly defaultMarginBp = signal<number | null>(null);
+  protected readonly table = new MasterTable<Category>(
+    async (query) => {
+      const page = await masterApi.categoryPage(query);
+      this.defaultMarginBp.set(page.defaultMarginBp);
+      return page;
+    },
+    masterApi.categoryList,
+    (e) => this.notify.error(e),
   );
   protected readonly saving = signal(false);
   protected readonly bpToPercent = bpToPercent;
