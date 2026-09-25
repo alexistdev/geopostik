@@ -15,7 +15,7 @@ Turunan dari [FLOW.md](FLOW.md). Masih tahap rancangan, belum migration/DDL fina
 | Tanggal & waktu | `TEXT` waktu lokal `YYYY-MM-DD HH:MM:SS`; tanggal saja `YYYY-MM-DD` (ED, tanggal faktur) |
 | Boolean | `INTEGER` 0/1 |
 | Enum | `TEXT` + `CHECK (kolom IN (...))` |
-| Master data | **Tidak pernah dihapus permanen.** Nonaktif = `is_active = 0` (tidak muncul sebagai pilihan). Hapus = soft delete `deleted_at` + `deleted_by` (disembunyikan dari daftar). Trigger menolak `DELETE` di semua tabel master |
+| Master data (termasuk barcode obat) | **Tidak pernah dihapus permanen.** Nonaktif = `is_active = 0` (tidak muncul sebagai pilihan). Hapus = soft delete `deleted_at` + `deleted_by` (disembunyikan dari daftar). Trigger menolak `DELETE` di semua tabel master |
 | Transaksi | Tidak dihapus, ditandai `VOID` + transaksi pembalik |
 | PRAGMA | `foreign_keys = ON`, `journal_mode = WAL`, `synchronous = NORMAL` |
 
@@ -157,7 +157,13 @@ Aturan:
 |---|---|---|
 | id | INTEGER PK | |
 | product_unit_id | FK product_units | scan barcode langsung tahu obat **dan** satuannya |
-| barcode | TEXT UNIQUE | |
+| barcode | TEXT | unik di antara barcode yang belum dihapus |
+| deleted_at, deleted_by | TEXT, FK users NULL | soft delete saat barcode dilepas dari obat |
+
+Barcode tidak pernah dihapus permanen (migration `006_barcode_soft_delete.sql`, trigger menolak
+`DELETE`). Saat form obat disimpan hanya selisihnya yang diproses: barcode yang dilepas
+di-soft-delete, barcode baru ditambahkan, barcode yang tidak berubah tetap baris yang sama.
+Barcode yang sudah dilepas boleh dipakai obat lain.
 
 ### `racks`, `manufacturers`
 Master sederhana (id, code, name UNIQUE tanpa beda huruf besar/kecil, is_active), dikelola di menu

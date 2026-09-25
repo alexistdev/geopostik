@@ -354,7 +354,7 @@ pub fn save_product(conn: &mut Connection, user: &SessionUser, input: &ProductIn
         }
     };
 
-    save_units(&tx, product_id, input)?;
+    save_units(&tx, product_id, user.id, input)?;
     let price = settings::price(&tx)?;
     let mut warnings = recalc_auto_prices(&tx, product_id, price)?;
     if repo::product_units(&tx, product_id)?
@@ -420,7 +420,7 @@ fn validate_units(input: &ProductInput) -> AppResult<()> {
     Ok(())
 }
 
-fn save_units(conn: &Connection, product_id: i64, input: &ProductInput) -> AppResult<()> {
+fn save_units(conn: &Connection, product_id: i64, user_id: i64, input: &ProductInput) -> AppResult<()> {
     let has_stock = repo::product_has_stock(conn, product_id)?;
     let existing = repo::product_units(conn, product_id)?;
     let mut kept = HashSet::new();
@@ -449,7 +449,8 @@ fn save_units(conn: &Connection, product_id: i64, input: &ProductInput) -> AppRe
         repo::deactivate_product_unit(conn, e.id)?;
     }
 
-    repo::delete_product_barcodes(conn, product_id)?;
+    // Barcode yang diinginkan per satuan (id satuan obat, barcode).
+    let mut wanted = HashSet::new();
     for u in &input.units {
         let pu_id = match match_existing(&existing, u) {
             Some(old) => {
@@ -459,8 +460,23 @@ fn save_units(conn: &Connection, product_id: i64, input: &ProductInput) -> AppRe
             None => repo::insert_product_unit(conn, product_id, u.unit_id, u.conversion, u.is_default_sale)?,
         };
         for b in &u.barcodes {
-            repo::insert_barcode(conn, pu_id, b.trim())?;
+            wanted.insert((pu_id, b.trim().to_owned()));
         }
+    }
+
+    // Barcode tidak pernah dihapus permanen: yang dilepas di-soft-delete dulu, lalu yang baru
+    // ditambahkan (urutan ini juga membolehkan barcode dipindah ke satuan lain di obat yang sama).
+    let mut kept_barcodes = HashSet::new();
+    for b in repo::active_product_barcodes(conn, product_id)? {
+        let key = (b.product_unit_id, b.barcode);
+        if wanted.contains(&key) {
+            kept_barcodes.insert(key);
+        } else {
+            repo::soft_delete_barcode(conn, b.id, user_id)?;
+        }
+    }
+    for (pu_id, barcode) in wanted.difference(&kept_barcodes) {
+        repo::insert_barcode(conn, *pu_id, barcode)?;
     }
     Ok(())
 }

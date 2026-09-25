@@ -13,6 +13,7 @@ static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         M::up(include_str!("../../migrations/003_master_codes.sql")),
         M::up(include_str!("../../migrations/004_master_soft_delete.sql")).foreign_key_check(),
         M::up(include_str!("../../migrations/005_master_code_immutable.sql")),
+        M::up(include_str!("../../migrations/006_barcode_soft_delete.sql")).foreign_key_check(),
     ])
 });
 
@@ -154,6 +155,32 @@ mod tests {
         assert!(conn.execute("INSERT INTO racks (code, name) VALUES ('RAK0009', 'a1')", []).is_err());
         conn.execute("UPDATE racks SET deleted_at = datetime('now') WHERE id = 1", []).unwrap();
         conn.execute("INSERT INTO racks (code, name) VALUES ('RAK0001', 'A1')", []).unwrap();
+    }
+
+    #[test]
+    fn migration_006_keeps_existing_barcodes() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "OFF").unwrap();
+        MIGRATIONS.to_version(&mut conn, 5).unwrap();
+        conn.execute_batch(
+            "INSERT INTO products (code, name, drug_class, base_unit_id) VALUES ('P1', 'Obat', 'FREE', 1);
+             INSERT INTO product_units (product_id, unit_id, conversion, sell_price) VALUES (1, 1, 1, 1000);
+             INSERT INTO product_barcodes (product_unit_id, barcode) VALUES (1, '8991234567890');",
+        )
+        .unwrap();
+
+        MIGRATIONS.to_latest(&mut conn).unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+
+        let (unit, deleted): (i64, Option<String>) = conn
+            .query_row(
+                "SELECT product_unit_id, deleted_at FROM product_barcodes WHERE barcode = '8991234567890'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!((unit, deleted), (1, None));
+        assert!(conn.execute("DELETE FROM product_barcodes", []).is_err());
     }
 
     #[test]

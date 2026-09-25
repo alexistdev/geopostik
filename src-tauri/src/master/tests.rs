@@ -541,3 +541,54 @@ fn master_pages_are_paginated_and_searchable() {
     let for_ttk = service::page_categories(&conn, PriceAccess::of(&user(&[Role::Technician])), &q).unwrap();
     assert_eq!(for_ttk.rows[0].margin_bp, None);
 }
+
+#[test]
+fn barcodes_are_soft_deleted_and_unchanged_ones_kept() {
+    let mut conn = setup();
+    let owner = user(&[Role::Owner]);
+    let p = service::save_product(&mut conn, &owner, &paracetamol()).unwrap().product;
+    let original_row: i64 = conn
+        .query_row("SELECT id FROM product_barcodes WHERE barcode = '8991234567890'", [], |r| r.get(0))
+        .unwrap();
+
+    let resave = |conn: &mut Connection, strip: &[&str], boxes: &[&str]| {
+        let mut input = paracetamol();
+        input.id = Some(p.id);
+        input.units = vec![unit(TABLET, 1, false, &[]), unit(STRIP, 10, true, strip), unit(BOX, 100, false, boxes)];
+        service::save_product(conn, &owner, &input).unwrap().product
+    };
+
+    // Simpan ulang tanpa perubahan: barcode tetap baris yang sama (tidak dihapus-tambah ulang).
+    resave(&mut conn, &["8991234567890"], &[]);
+    let same_row: i64 = conn
+        .query_row("SELECT id FROM product_barcodes WHERE barcode = '8991234567890' AND deleted_at IS NULL", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(same_row, original_row);
+
+    // Barcode dilepas: soft delete, tidak muncul di obat, pencarian, maupun pemilik barcode.
+    let after = resave(&mut conn, &[], &["8990000000001"]);
+    assert!(after.units.iter().all(|u| !u.barcodes.contains(&"8991234567890".to_string())));
+    let (deleted_at, deleted_by): (Option<String>, Option<i64>) = conn
+        .query_row("SELECT deleted_at, deleted_by FROM product_barcodes WHERE id = ?1", [original_row], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })
+        .unwrap();
+    assert!(deleted_at.is_some());
+    assert_eq!(deleted_by, Some(owner.id));
+    let search = service::list_products(&conn, &ProductListQuery { q: Some("8991234567890".into()), limit: 10, ..Default::default() })
+        .unwrap();
+    assert_eq!(search.total, 0);
+
+    // Barcode yang sudah dilepas boleh dipakai obat lain.
+    let mut other = paracetamol();
+    other.name = "Paracetamol Sirup".into();
+    service::save_product(&mut conn, &owner, &other).unwrap();
+
+    // Barcode boleh dipindah ke satuan lain di obat yang sama.
+    let moved = resave(&mut conn, &["8990000000001"], &[]);
+    let strip = moved.units.iter().find(|u| u.unit_id == STRIP).unwrap();
+    assert_eq!(strip.barcodes, vec!["8990000000001".to_string()]);
+
+    // Hapus permanen ditolak oleh database.
+    assert!(conn.execute("DELETE FROM product_barcodes", []).is_err());
+}

@@ -365,7 +365,7 @@ pub fn list_products(conn: &Connection, q: &ProductListQuery) -> AppResult<(Vec<
     let fts = text.and_then(fts_query);
     let barcode_clause = "p.id IN (SELECT xpu.product_id FROM product_barcodes b
                                    JOIN product_units xpu ON xpu.id = b.product_unit_id
-                                   WHERE b.barcode = :barcode)";
+                                   WHERE b.barcode = :barcode AND b.deleted_at IS NULL)";
     // Teks tanpa huruf/angka tidak dicari lewat FTS, tapi tetap dicek sebagai barcode.
     let text_clause = match (text, &fts) {
         (None, _) => "(:barcode IS NULL AND :fts IS NULL)".to_owned(),
@@ -641,7 +641,9 @@ pub fn set_unit_price(conn: &Connection, id: i64, mode: PriceMode, price: i64) -
 // ─── Barcode ─────────────────────────────────────────────────────────────────
 
 pub fn barcodes_of(conn: &Connection, product_unit_id: i64) -> AppResult<Vec<String>> {
-    let mut stmt = conn.prepare("SELECT barcode FROM product_barcodes WHERE product_unit_id = ?1 ORDER BY id")?;
+    let mut stmt = conn.prepare(
+        "SELECT barcode FROM product_barcodes WHERE product_unit_id = ?1 AND deleted_at IS NULL ORDER BY id",
+    )?;
     let rows = stmt.query_map([product_unit_id], |r| r.get(0))?.collect::<Result<_, _>>()?;
     Ok(rows)
 }
@@ -653,18 +655,40 @@ pub fn barcode_owner(conn: &Connection, barcode: &str, except_product_id: Option
             "SELECT p.name FROM product_barcodes b
              JOIN product_units pu ON pu.id = b.product_unit_id
              JOIN products p ON p.id = pu.product_id
-             WHERE b.barcode = ?1 AND p.id IS NOT ?2",
+             WHERE b.barcode = ?1 AND b.deleted_at IS NULL AND p.id IS NOT ?2",
             params![barcode, except_product_id],
             |r| r.get(0),
         )
         .optional()?)
 }
 
-pub fn delete_product_barcodes(conn: &Connection, product_id: i64) -> AppResult<()> {
+pub struct BarcodeRow {
+    pub id: i64,
+    pub product_unit_id: i64,
+    pub barcode: String,
+}
+
+/// Barcode aktif (belum dihapus) milik semua satuan obat ini.
+pub fn active_product_barcodes(conn: &Connection, product_id: i64) -> AppResult<Vec<BarcodeRow>> {
+    let mut stmt = conn.prepare(
+        "SELECT b.id, b.product_unit_id, b.barcode FROM product_barcodes b
+         JOIN product_units pu ON pu.id = b.product_unit_id
+         WHERE pu.product_id = ?1 AND b.deleted_at IS NULL",
+    )?;
+    let rows = stmt
+        .query_map([product_id], |r| {
+            Ok(BarcodeRow { id: r.get(0)?, product_unit_id: r.get(1)?, barcode: r.get(2)? })
+        })?
+        .collect::<Result<_, _>>()?;
+    Ok(rows)
+}
+
+/// Soft delete: barcode dilepas dari obat, riwayatnya tetap tersimpan.
+pub fn soft_delete_barcode(conn: &Connection, id: i64, user_id: i64) -> AppResult<()> {
     conn.execute(
-        "DELETE FROM product_barcodes
-         WHERE product_unit_id IN (SELECT id FROM product_units WHERE product_id = ?1)",
-        [product_id],
+        "UPDATE product_barcodes SET deleted_at = datetime('now', 'localtime'), deleted_by = ?2
+         WHERE id = ?1 AND deleted_at IS NULL",
+        params![id, user_id],
     )?;
     Ok(())
 }
