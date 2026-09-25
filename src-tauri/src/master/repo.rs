@@ -7,21 +7,30 @@ use crate::error::AppResult;
 
 // ─── Kategori & satuan ───────────────────────────────────────────────────────
 
+/// Kolom tanggal dibuat dan username pembuat data master di tabel `table`.
+fn created_columns(table: &str) -> String {
+    format!("created_at, (SELECT u.username FROM users u WHERE u.id = {table}.created_by)")
+}
+
+fn category_row(r: &rusqlite::Row) -> rusqlite::Result<Category> {
+    Ok(Category {
+        id: r.get(0)?,
+        code: r.get(1)?,
+        name: r.get(2)?,
+        margin_bp: r.get(3)?,
+        is_active: r.get(4)?,
+        created_at: r.get(5)?,
+        created_by: r.get(6)?,
+    })
+}
+
 pub fn list_categories(conn: &Connection) -> AppResult<Vec<Category>> {
-    let mut stmt =
-        conn.prepare("SELECT id, code, name, margin_bp, is_active FROM categories
-         WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE")?;
-    let rows = stmt
-        .query_map([], |r| {
-            Ok(Category {
-                id: r.get(0)?,
-                code: r.get(1)?,
-                name: r.get(2)?,
-                margin_bp: r.get(3)?,
-                is_active: r.get(4)?,
-            })
-        })?
-        .collect::<Result<_, _>>()?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT id, code, name, margin_bp, is_active, {} FROM categories
+         WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE",
+        created_columns("categories")
+    ))?;
+    let rows = stmt.query_map([], category_row)?.collect::<Result<_, _>>()?;
     Ok(rows)
 }
 
@@ -49,19 +58,12 @@ pub fn page_categories(conn: &Connection, q: &MasterPageQuery) -> AppResult<(Vec
         |r| r.get(0),
     )?;
     let mut stmt = conn.prepare(&format!(
-        "SELECT id, code, name, margin_bp, is_active FROM categories WHERE {MASTER_PAGE_FILTER}
-         ORDER BY name COLLATE NOCASE, id LIMIT :limit OFFSET :offset"
+        "SELECT id, code, name, margin_bp, is_active, {} FROM categories WHERE {MASTER_PAGE_FILTER}
+         ORDER BY name COLLATE NOCASE, id LIMIT :limit OFFSET :offset",
+        created_columns("categories")
     ))?;
     let rows = stmt
-        .query_map(rusqlite::named_params! { ":like": like, ":limit": limit, ":offset": offset }, |r| {
-            Ok(Category {
-                id: r.get(0)?,
-                code: r.get(1)?,
-                name: r.get(2)?,
-                margin_bp: r.get(3)?,
-                is_active: r.get(4)?,
-            })
-        })?
+        .query_map(rusqlite::named_params! { ":like": like, ":limit": limit, ":offset": offset }, category_row)?
         .collect::<Result<_, _>>()?;
     Ok((rows, total))
 }
@@ -76,10 +78,17 @@ pub fn category_margin(conn: &Connection, id: i64) -> AppResult<Option<Option<i6
         .optional()?)
 }
 
-pub fn insert_category(conn: &Connection, code: &str, name: &str, margin_bp: Option<i64>, is_active: bool) -> AppResult<i64> {
+pub fn insert_category(
+    conn: &Connection,
+    code: &str,
+    name: &str,
+    margin_bp: Option<i64>,
+    is_active: bool,
+    created_by: i64,
+) -> AppResult<i64> {
     conn.execute(
-        "INSERT INTO categories (code, name, margin_bp, is_active) VALUES (?1, ?2, ?3, ?4)",
-        params![code, name, margin_bp, is_active],
+        "INSERT INTO categories (code, name, margin_bp, is_active, created_by) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![code, name, margin_bp, is_active, created_by],
     )?;
     Ok(conn.last_insert_rowid())
 }
@@ -237,17 +246,39 @@ impl NamedTable {
     }
 }
 
+fn named_row(r: &rusqlite::Row) -> rusqlite::Result<NamedItem> {
+    Ok(NamedItem {
+        id: r.get(0)?,
+        code: r.get(1)?,
+        name: r.get(2)?,
+        is_active: r.get(3)?,
+        created_at: r.get(4)?,
+        created_by: r.get(5)?,
+    })
+}
+
 pub fn list_named(conn: &Connection, t: NamedTable) -> AppResult<Vec<NamedItem>> {
     let mut stmt = conn.prepare(&format!(
-        "SELECT id, code, name, is_active FROM {} WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE",
+        "SELECT id, code, name, is_active, {} FROM {} WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE",
+        created_columns(t.table()),
         t.table()
     ))?;
-    let rows = stmt
-        .query_map([], |r| {
-            Ok(NamedItem { id: r.get(0)?, code: r.get(1)?, name: r.get(2)?, is_active: r.get(3)? })
-        })?
-        .collect::<Result<_, _>>()?;
+    let rows = stmt.query_map([], named_row)?.collect::<Result<_, _>>()?;
     Ok(rows)
+}
+
+pub fn get_named(conn: &Connection, t: NamedTable, id: i64) -> AppResult<Option<NamedItem>> {
+    Ok(conn
+        .query_row(
+            &format!(
+                "SELECT id, code, name, is_active, {} FROM {} WHERE id = ?1 AND deleted_at IS NULL",
+                created_columns(t.table()),
+                t.table()
+            ),
+            [id],
+            named_row,
+        )
+        .optional()?)
 }
 
 pub fn page_named(conn: &Connection, t: NamedTable, q: &MasterPageQuery) -> AppResult<(Vec<NamedItem>, i64)> {
@@ -259,14 +290,13 @@ pub fn page_named(conn: &Connection, t: NamedTable, q: &MasterPageQuery) -> AppR
         |r| r.get(0),
     )?;
     let mut stmt = conn.prepare(&format!(
-        "SELECT id, code, name, is_active FROM {} WHERE {MASTER_PAGE_FILTER}
+        "SELECT id, code, name, is_active, {} FROM {} WHERE {MASTER_PAGE_FILTER}
          ORDER BY name COLLATE NOCASE, id LIMIT :limit OFFSET :offset",
+        created_columns(t.table()),
         t.table()
     ))?;
     let rows = stmt
-        .query_map(rusqlite::named_params! { ":like": like, ":limit": limit, ":offset": offset }, |r| {
-            Ok(NamedItem { id: r.get(0)?, code: r.get(1)?, name: r.get(2)?, is_active: r.get(3)? })
-        })?
+        .query_map(rusqlite::named_params! { ":like": like, ":limit": limit, ":offset": offset }, named_row)?
         .collect::<Result<_, _>>()?;
     Ok((rows, total))
 }
@@ -291,10 +321,10 @@ pub fn named_name_taken(conn: &Connection, t: NamedTable, name: &str, except_id:
     )?)
 }
 
-pub fn insert_named(conn: &Connection, t: NamedTable, code: &str, name: &str, is_active: bool) -> AppResult<i64> {
+pub fn insert_named(conn: &Connection, t: NamedTable, code: &str, name: &str, is_active: bool, created_by: i64) -> AppResult<i64> {
     conn.execute(
-        &format!("INSERT INTO {} (code, name, is_active) VALUES (?1, ?2, ?3)", t.table()),
-        params![code, name, is_active],
+        &format!("INSERT INTO {} (code, name, is_active, created_by) VALUES (?1, ?2, ?3, ?4)", t.table()),
+        params![code, name, is_active, created_by],
     )?;
     Ok(conn.last_insert_rowid())
 }

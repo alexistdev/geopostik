@@ -48,6 +48,8 @@
       <th style="width: 3rem"><p-tableHeaderCheckbox /></th>
       <th style="width: 10rem">Kode</th>
       <th>Nama</th>
+      <th style="width: 10rem">Dibuat</th>
+      <th style="width: 10rem">Dibuat oleh</th>
       <th style="width: 8rem">Status</th>
       @if (canEdit) {
         <th style="width: 20rem"></th>
@@ -59,6 +61,8 @@
       <td><p-tableCheckbox [value]="item" /></td>
       <td class="code">{{ item.code }}</td>
       <td>{{ item.name }}</td>
+      <td>{{ item.createdAt | dateTime }}</td>
+      <td>{{ item.createdBy ?? '–' }}</td>
       <td>
         <p-tag [value]="item.isActive ? 'Aktif' : 'Nonaktif'" [severity]="item.isActive ? 'success' : 'secondary'" />
       </td>
@@ -71,7 +75,7 @@
   </ng-template>
   <ng-template #emptymessage>
     <tr>
-      <td colspan="5" class="muted">
+      <td colspan="7" class="muted">
         {{ t.search() ? 'Tidak ada ' + config().label.toLowerCase() + ' yang cocok.' : 'Belum ada data ' + config().label.toLowerCase() + '.' }}
       </td>
     </tr>

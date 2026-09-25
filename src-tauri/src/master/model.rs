@@ -83,6 +83,9 @@ pub struct Category {
     /// `None` bila user tidak berhak melihat margin, atau kategori tidak punya margin sendiri.
     pub margin_bp: Option<i64>,
     pub is_active: bool,
+    pub created_at: String,
+    /// Username pembuat; `None` untuk data lama sebelum pembuat dicatat.
+    pub created_by: Option<String>,
 }
 
 #[derive(Debug, Deserialize, TS)]
@@ -105,6 +108,9 @@ pub struct NamedItem {
     pub code: String,
     pub name: String,
     pub is_active: bool,
+    pub created_at: String,
+    /// Username pembuat; `None` untuk data lama sebelum pembuat dicatat.
+    pub created_by: Option<String>,
 }
 
 #[derive(Debug, Deserialize, TS)]

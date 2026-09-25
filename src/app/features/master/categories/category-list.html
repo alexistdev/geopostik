@@ -50,6 +50,8 @@
       @if (showMargin) {
         <th style="width: 12rem">Margin</th>
       }
+      <th style="width: 10rem">Dibuat</th>
+      <th style="width: 10rem">Dibuat oleh</th>
       <th style="width: 8rem">Status</th>
       @if (canEdit) {
         <th style="width: 20rem"></th>
@@ -70,6 +72,8 @@
           }
         </td>
       }
+      <td>{{ c.createdAt | dateTime }}</td>
+      <td>{{ c.createdBy ?? '–' }}</td>
       <td>
         <p-tag [value]="c.isActive ? 'Aktif' : 'Nonaktif'" [severity]="c.isActive ? 'success' : 'secondary'" />
       </td>
@@ -82,7 +86,7 @@
   </ng-template>
   <ng-template #emptymessage>
     <tr>
-      <td colspan="6" class="muted">{{ table.search() ? 'Tidak ada kategori yang cocok.' : 'Belum ada kategori.' }}</td>
+      <td colspan="8" class="muted">{{ table.search() ? 'Tidak ada kategori yang cocok.' : 'Belum ada kategori.' }}</td>
     </tr>
   </ng-template>
 </p-table>

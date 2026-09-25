@@ -45,8 +45,8 @@ pub async fn rack_page(state: State<'_, AppState>, query: MasterPageQuery) -> Ap
 
 #[tauri::command]
 pub async fn rack_save(state: State<'_, AppState>, input: NamedItemInput) -> AppResult<NamedItem> {
-    state.require(Permission::ProductManage)?;
-    service::save_named(&*state.db()?, NamedTable::Racks, &input)
+    let user = state.require(Permission::ProductManage)?;
+    service::save_named(&*state.db()?, &user, NamedTable::Racks, &input)
 }
 
 #[tauri::command]
@@ -63,8 +63,8 @@ pub async fn manufacturer_page(state: State<'_, AppState>, query: MasterPageQuer
 
 #[tauri::command]
 pub async fn manufacturer_save(state: State<'_, AppState>, input: NamedItemInput) -> AppResult<NamedItem> {
-    state.require(Permission::ProductManage)?;
-    service::save_named(&*state.db()?, NamedTable::Manufacturers, &input)
+    let user = state.require(Permission::ProductManage)?;
+    service::save_named(&*state.db()?, &user, NamedTable::Manufacturers, &input)
 }
 
 #[tauri::command]

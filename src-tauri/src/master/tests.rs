@@ -342,6 +342,8 @@ fn category_margin_requires_price_permission() {
     )
     .unwrap();
     assert_eq!(cat.margin_bp, None);
+    assert_eq!(cat.created_by.as_deref(), Some("u"));
+    assert!(!cat.created_at.is_empty());
 
     let dup = service::save_category(
         &mut conn,
@@ -357,13 +359,15 @@ fn racks_and_manufacturers_are_master_data() {
     let owner = user(&[Role::Owner]);
     let named = |id: Option<i64>, name: &str, active: bool| NamedItemInput { id, name: name.into(), is_active: active };
 
-    let rack = service::save_named(&conn, NamedTable::Racks, &named(None, "A1", true)).unwrap();
-    let pabrik = service::save_named(&conn, NamedTable::Manufacturers, &named(None, "Kimia Farma", true)).unwrap();
+    let rack = service::save_named(&conn, &owner, NamedTable::Racks, &named(None, "A1", true)).unwrap();
+    assert_eq!(rack.created_by.as_deref(), Some("u"));
+    assert!(!rack.created_at.is_empty());
+    let pabrik = service::save_named(&conn, &owner, NamedTable::Manufacturers, &named(None, "Kimia Farma", true)).unwrap();
 
     // Nama unik tanpa membedakan huruf besar/kecil, per tabel.
-    let dup = service::save_named(&conn, NamedTable::Racks, &named(None, "a1", true));
+    let dup = service::save_named(&conn, &owner, NamedTable::Racks, &named(None, "a1", true));
     assert!(matches!(dup, Err(AppError::Conflict(_))));
-    service::save_named(&conn, NamedTable::Manufacturers, &named(None, "A1", true)).unwrap();
+    service::save_named(&conn, &owner, NamedTable::Manufacturers, &named(None, "A1", true)).unwrap();
 
     let mut input = paracetamol();
     input.rack_id = Some(rack.id);
@@ -375,7 +379,7 @@ fn racks_and_manufacturers_are_master_data() {
     assert_eq!(rows[0].rack_name.as_deref(), Some("A1"));
 
     // Ganti nama rak ikut tampil di daftar obat.
-    service::save_named(&conn, NamedTable::Racks, &named(Some(rack.id), "A1-Atas", true)).unwrap();
+    service::save_named(&conn, &owner, NamedTable::Racks, &named(Some(rack.id), "A1-Atas", true)).unwrap();
     let rows = service::list_products(&conn, &ProductListQuery { limit: 10, ..Default::default() }).unwrap().rows;
     assert_eq!(rows[0].rack_name.as_deref(), Some("A1-Atas"));
 
@@ -385,7 +389,7 @@ fn racks_and_manufacturers_are_master_data() {
     bad.rack_id = Some(999);
     assert!(matches!(service::save_product(&mut conn, &owner, &bad), Err(AppError::Validation(_))));
 
-    let missing = service::save_named(&conn, NamedTable::Racks, &named(Some(999), "X", true));
+    let missing = service::save_named(&conn, &owner, NamedTable::Racks, &named(Some(999), "X", true));
     assert!(matches!(missing, Err(AppError::NotFound(_))));
 }
 
@@ -396,10 +400,10 @@ fn master_codes_are_always_system_generated_and_immutable() {
     let named = |id: Option<i64>, name: &str| NamedItemInput { id, name: name.into(), is_active: true };
 
     // Kode otomatis per jenis master, berurutan.
-    let a1 = service::save_named(&conn, NamedTable::Racks, &named(None, "A1")).unwrap();
-    let b1 = service::save_named(&conn, NamedTable::Racks, &named(None, "B1")).unwrap();
+    let a1 = service::save_named(&conn, &owner, NamedTable::Racks, &named(None, "A1")).unwrap();
+    let b1 = service::save_named(&conn, &owner, NamedTable::Racks, &named(None, "B1")).unwrap();
     assert_eq!((a1.code.as_str(), b1.code.as_str()), ("RAK0001", "RAK0002"));
-    let pabrik = service::save_named(&conn, NamedTable::Manufacturers, &named(None, "Kalbe")).unwrap();
+    let pabrik = service::save_named(&conn, &owner, NamedTable::Manufacturers, &named(None, "Kalbe")).unwrap();
     assert_eq!(pabrik.code, "PBR0001");
     let cat = service::save_category(
         &mut conn,
@@ -410,7 +414,7 @@ fn master_codes_are_always_system_generated_and_immutable() {
     assert_eq!(cat.code, "KTG0001");
 
     // Mengubah data tidak mengubah kode.
-    let renamed = service::save_named(&conn, NamedTable::Racks, &named(Some(a1.id), "A1 Atas")).unwrap();
+    let renamed = service::save_named(&conn, &owner, NamedTable::Racks, &named(Some(a1.id), "A1 Atas")).unwrap();
     assert_eq!(renamed.code, "RAK0001");
     let cat2 = service::save_category(
         &mut conn,
@@ -433,8 +437,8 @@ fn master_data_is_soft_deleted_only_when_unused() {
     let owner = user(&[Role::Owner]);
     let named = |name: &str| NamedItemInput { id: None, name: name.into(), is_active: true };
 
-    let used_rack = service::save_named(&conn, NamedTable::Racks, &named("A1")).unwrap();
-    let free_rack = service::save_named(&conn, NamedTable::Racks, &named("B1")).unwrap();
+    let used_rack = service::save_named(&conn, &owner, NamedTable::Racks, &named("A1")).unwrap();
+    let free_rack = service::save_named(&conn, &owner, NamedTable::Racks, &named("B1")).unwrap();
     let cat = service::save_category(
         &mut conn,
         &owner,
@@ -473,6 +477,7 @@ fn master_data_is_soft_deleted_only_when_unused() {
     // Data terhapus tidak bisa diubah, diaktifkan, atau dihapus lagi.
     let edit = service::save_named(
         &conn,
+        &owner,
         NamedTable::Racks,
         &NamedItemInput { id: Some(free_rack.id), name: "B1".into(), is_active: true },
     );
@@ -483,7 +488,7 @@ fn master_data_is_soft_deleted_only_when_unused() {
     assert!(matches!(again, Err(AppError::NotFound(_))));
 
     // Nama data terhapus boleh dipakai lagi, tapi kodenya tidak dipakai ulang.
-    let reused = service::save_named(&conn, NamedTable::Racks, &named("B1")).unwrap();
+    let reused = service::save_named(&conn, &owner, NamedTable::Racks, &named("B1")).unwrap();
     assert_ne!(reused.code, free_rack.code);
 
     // Hapus permanen selalu ditolak oleh database.
@@ -500,10 +505,10 @@ fn master_pages_are_paginated_and_searchable() {
     let mut conn = setup();
     let owner = user(&[Role::Owner]);
     for i in 1..=30 {
-        service::save_named(&conn, NamedTable::Racks, &NamedItemInput { id: None, name: format!("Rak {i:02}"), is_active: true })
+        service::save_named(&conn, &owner, NamedTable::Racks, &NamedItemInput { id: None, name: format!("Rak {i:02}"), is_active: true })
             .unwrap();
     }
-    service::save_named(&conn, NamedTable::Racks, &NamedItemInput { id: None, name: "Diskon 50%_A".into(), is_active: true })
+    service::save_named(&conn, &owner, NamedTable::Racks, &NamedItemInput { id: None, name: "Diskon 50%_A".into(), is_active: true })
         .unwrap();
     let page = |conn: &Connection, q: Option<&str>, offset: i64, limit: i64| {
         service::page_named(conn, NamedTable::Racks, &MasterPageQuery { q: q.map(Into::into), offset, limit }).unwrap()

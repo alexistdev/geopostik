@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { bpToPercent, formatCostX100, formatRupiah, percentToBp } from './format';
+import { bpToPercent, formatCostX100, formatDateTime, formatRupiah, percentToBp } from './format';
 
 describe('format', () => {
   it('formats rupiah with Indonesian grouping', () => {
@@ -18,5 +18,10 @@ describe('format', () => {
     expect(percentToBp(12.5)).toBe(1250);
     expect(percentToBp(null)).toBeNull();
     expect(bpToPercent(2000)).toBe(20);
+  });
+
+  it('formats SQLite local datetime', () => {
+    expect(formatDateTime('2026-09-26 14:05:09')).toBe('26/09/2026 14:05');
+    expect(formatDateTime(null)).toBe('–');
   });
 });

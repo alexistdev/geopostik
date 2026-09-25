@@ -79,7 +79,7 @@ pub fn save_category(conn: &mut Connection, user: &SessionUser, input: &Category
                 return Err(AppError::Forbidden);
             }
             let code = repo::next_code(&tx, CodedTable::Categories)?;
-            (repo::insert_category(&tx, &code, name, input.margin_bp, input.is_active)?, false)
+            (repo::insert_category(&tx, &code, name, input.margin_bp, input.is_active, user.id)?, false)
         }
     };
 
@@ -118,7 +118,7 @@ pub fn page_named(conn: &Connection, table: NamedTable, query: &MasterPageQuery)
 }
 
 /// Simpan rak atau pabrik.
-pub fn save_named(conn: &Connection, table: NamedTable, input: &NamedItemInput) -> AppResult<NamedItem> {
+pub fn save_named(conn: &Connection, user: &SessionUser, table: NamedTable, input: &NamedItemInput) -> AppResult<NamedItem> {
     let label = match table {
         NamedTable::Racks => "rak",
         NamedTable::Manufacturers => "pabrik",
@@ -127,19 +127,20 @@ pub fn save_named(conn: &Connection, table: NamedTable, input: &NamedItemInput) 
     if repo::named_name_taken(conn, table, name, input.id)? {
         return Err(AppError::Conflict(format!("Nama {label} \"{name}\" sudah ada")));
     }
-    let (id, code) = match input.id {
+    let id = match input.id {
         Some(id) => {
-            let code = repo::code_of(conn, table.coded(), id)?
-                .ok_or_else(|| AppError::NotFound(format!("Data {label} tidak ditemukan")))?;
+            if !repo::named_exists(conn, table, id)? {
+                return Err(AppError::NotFound(format!("Data {label} tidak ditemukan")));
+            }
             repo::update_named(conn, table, id, name, input.is_active)?;
-            (id, code)
+            id
         }
         None => {
             let code = repo::next_code(conn, table.coded())?;
-            (repo::insert_named(conn, table, &code, name, input.is_active)?, code)
+            repo::insert_named(conn, table, &code, name, input.is_active, user.id)?
         }
     };
-    Ok(NamedItem { id, code, name: name.to_owned(), is_active: input.is_active })
+    repo::get_named(conn, table, id)?.ok_or_else(|| AppError::Internal(format!("data {label} hilang setelah disimpan")))
 }
 
 // ─── Aksi bersama Master Data ────────────────────────────────────────────────

@@ -89,6 +89,7 @@ Penomoran dokumen per hari/bulan, misal `PJ-260925-0001`.
 | code | TEXT UNIQUE | kode/label barcode, dibuat sistem `KTG0001`, tidak bisa diubah |
 | name | TEXT UNIQUE | |
 | margin_bp | INTEGER NULL | margin default kategori; NULL = pakai margin global |
+| created_at, created_by | TEXT, FK users NULL | kapan & oleh siapa dibuat (tampil di Master Data) |
 
 ### `units`
 Kamus satuan: tablet, kapsul, strip, box, botol, tube, pcs, dst.
@@ -182,6 +183,10 @@ manusia, dan **tidak bisa diubah** setelah tersimpan (trigger menolak `UPDATE` k
 otomatis tidak memakai ulang kode milik data yang sudah dihapus. Dicetak sebagai label barcode
 Code 128 dan bisa di-scan untuk mencari atau memilih data (misal scan label rak saat mengisi
 form obat).
+
+**Pembuat** (migration `007_master_created_by.sql`): `categories`, `racks`, `manufacturers` punya
+`created_by` (FK users). Tabel Master Data menampilkan tanggal dibuat (`created_at`) dan username
+pembuatnya. Data yang dibuat sebelum migration ini `created_by` = NULL (tampil "-").
 
 ### `suppliers`, `doctors`, `customers`
 | Tabel | Kolom utama |

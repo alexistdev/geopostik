@@ -8,4 +8,8 @@ code: string, name: string,
 /**
  * `None` bila user tidak berhak melihat margin, atau kategori tidak punya margin sendiri.
  */
-marginBp: number | null, isActive: boolean, };
+marginBp: number | null, isActive: boolean, createdAt: string, 
+/**
+ * Username pembuat; `None` untuk data lama sebelum pembuat dicatat.
+ */
+createdBy: string | null, };

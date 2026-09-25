@@ -17,6 +17,7 @@ import { masterApi } from '../../../core/api/master.api';
 import { AuthService } from '../../../core/auth/auth.service';
 import { Notify } from '../../../core/ui/notify';
 import { Barcode } from '../../../shared/barcode';
+import { DateTimePipe } from '../../../shared/format';
 import { LabelPrint } from '../../../shared/label-print';
 import type { MasterKind } from '../../../bindings/MasterKind';
 import { MasterRowActions } from '../master-row-actions';
@@ -78,6 +79,7 @@ interface Form {
     TableModule,
     TagModule,
     Barcode,
+    DateTimePipe,
     MasterRowActions,
   ],
   templateUrl: './named-list.html',

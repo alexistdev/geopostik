@@ -15,7 +15,7 @@ import { masterApi } from '../../../core/api/master.api';
 import { AuthService } from '../../../core/auth/auth.service';
 import { Notify } from '../../../core/ui/notify';
 import { Barcode } from '../../../shared/barcode';
-import { bpToPercent, percentToBp } from '../../../shared/format';
+import { bpToPercent, DateTimePipe, percentToBp } from '../../../shared/format';
 import { LabelPrint } from '../../../shared/label-print';
 import { MasterRowActions } from '../master-row-actions';
 import { MASTER_PAGE_SIZES, MasterTable, PAGE_REPORT } from '../master-table';
@@ -43,6 +43,7 @@ interface CategoryForm {
     TableModule,
     TagModule,
     Barcode,
+    DateTimePipe,
     MasterRowActions,
   ],
   templateUrl: './category-list.html',

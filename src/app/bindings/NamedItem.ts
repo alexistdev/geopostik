@@ -7,4 +7,8 @@ export type NamedItem = { id: number,
 /**
  * Dibuat otomatis oleh sistem (RAK0001 / PBR0001), tidak bisa diubah.
  */
-code: string, name: string, isActive: boolean, };
+code: string, name: string, isActive: boolean, createdAt: string, 
+/**
+ * Username pembuat; `None` untuk data lama sebelum pembuat dicatat.
+ */
+createdBy: string | null, };
