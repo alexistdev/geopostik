@@ -24,6 +24,7 @@
     "@primeuix/themes": "^2.0.3",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.3",
+    "@tauri-apps/plugin-opener": "^2.5.5",
     "jsbarcode": "^3.12.3",
     "primeicons": "^7.0.0",
     "primeng": "^21.1.10",

@@ -1,4 +1,4 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 
 import type { LoginInput } from '../../bindings/LoginInput';
 import type { Permission } from '../../bindings/Permission';
@@ -6,6 +6,7 @@ import type { Role } from '../../bindings/Role';
 import type { SessionUser } from '../../bindings/SessionUser';
 import type { SetupInput } from '../../bindings/SetupInput';
 import { authApi } from '../api/auth.api';
+import { LicenseService } from '../license/license.service';
 
 export const ROLE_LABELS: Record<Role, string> = {
   OWNER: 'Pemilik',
@@ -20,6 +21,7 @@ export const ROLE_LABELS: Record<Role, string> = {
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private readonly license = inject(LicenseService);
   private readonly _user = signal<SessionUser | null>(null);
   private readonly _needsSetup = signal(false);
   private status: Promise<void> | null = null;
@@ -35,6 +37,7 @@ export class AuthService {
     this.status ??= authApi
       .appStatus()
       .then((s) => {
+        this.license.set(s.license);
         this._needsSetup.set(s.needsSetup);
         this._user.set(s.session);
       })

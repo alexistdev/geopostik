@@ -23,8 +23,13 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 rusqlite_migration = "2.6"
 thiserror = "2"
 argon2 = { version = "0.5", features = ["std"] }
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 ts-rs = "12"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
+ureq = { version = "3.4.2", features = ["json"] }
+machine-uid = "0.6.0"
+sha2 = "0.11.0"
+tauri-plugin-opener = "2.5.5"
+hmac = "0.13.0"

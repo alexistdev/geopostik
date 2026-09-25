@@ -15,6 +15,8 @@ pub enum AppError {
     NotFound(String),
     #[error("{0}")]
     Conflict(String),
+    #[error("{0}")]
+    LicenseRequired(String),
     #[error("Terjadi kesalahan database")]
     Database(#[from] rusqlite::Error),
     #[error("Terjadi kesalahan internal: {0}")]
@@ -39,6 +41,7 @@ pub enum ErrorCode {
     Forbidden,
     NotFound,
     Conflict,
+    LicenseRequired,
     Database,
     Internal,
 }
@@ -51,6 +54,7 @@ impl AppError {
             AppError::Forbidden => ErrorCode::Forbidden,
             AppError::NotFound(_) => ErrorCode::NotFound,
             AppError::Conflict(_) => ErrorCode::Conflict,
+            AppError::LicenseRequired(_) => ErrorCode::LicenseRequired,
             AppError::Database(_) => ErrorCode::Database,
             AppError::Internal(_) => ErrorCode::Internal,
         }

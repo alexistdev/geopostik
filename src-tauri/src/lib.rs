@@ -2,6 +2,7 @@ mod audit;
 mod auth;
 mod db;
 mod error;
+mod license;
 mod master;
 mod settings;
 mod state;
@@ -12,6 +13,7 @@ use tauri::Manager;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::EnvFilter;
 
+use crate::license::License;
 use crate::state::AppState;
 
 /// Folder data: `%APPDATA%\GeoPOSTik` (Windows). Build debug memakai folder terpisah
@@ -43,6 +45,7 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let dir = data_dir(app)?;
             std::fs::create_dir_all(dir.join("backups"))?;
@@ -55,7 +58,8 @@ pub fn run() {
                 tracing::error!(error = %e, "gagal membuka database");
                 e.to_string()
             })?;
-            app.manage(AppState::new(conn));
+            let license = License::load(dir.join("license.json"));
+            app.manage(AppState::new(conn, license));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -63,6 +67,9 @@ pub fn run() {
             auth::commands::setup_owner,
             auth::commands::login,
             auth::commands::logout,
+            license::commands::license_status,
+            license::commands::license_activate,
+            license::commands::license_revalidate,
             master::commands::category_list,
             master::commands::category_page,
             master::commands::category_save,

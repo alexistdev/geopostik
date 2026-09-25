@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Hak jendela utama",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:default"]
+  "permissions": ["core:default", "dialog:default", "opener:default"]
 }

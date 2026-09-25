@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::{Permission, Role};
+use crate::license::LicenseStatus;
 
 /// User yang sedang login beserta hak efektifnya.
 #[derive(Debug, Clone, Serialize, TS)]
@@ -15,11 +16,12 @@ pub struct SessionUser {
     pub permissions: Vec<Permission>,
 }
 
-/// Status aplikasi saat dibuka: perlu setup awal? sudah ada sesi?
+/// Status aplikasi saat dibuka: license aktif? perlu setup awal? sudah ada sesi?
 #[derive(Debug, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
 pub struct AppStatus {
+    pub license: LicenseStatus,
     pub needs_setup: bool,
     pub session: Option<SessionUser>,
 }

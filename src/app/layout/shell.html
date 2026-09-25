@@ -33,6 +33,10 @@
   </header>
 
   <main class="content">
-    <router-outlet />
+    @if (locked()) {
+      <app-license-gate />
+    } @else {
+      <router-outlet />
+    }
   </main>
 </div>

@@ -156,7 +156,24 @@ satu layout otomatis cocok untuk 58 mm maupun 80 mm, dan bisa dites tanpa printe
 
 Etiket resep (Tahap 3) memakai printer label terpisah, dirancang nanti.
 
-## 7. Pengembangan & build
+## 7. License
+
+License didapat dari server GeoLicense (https://geolicense.my.id/, SKU produk `GEOPOS`).
+Karena aplikasi berjalan offline, server hanya dihubungi saat **aktivasi pertama** dan saat
+**validasi ulang** (`POST /api/v1/licenses/activate`; aktivasi ulang di komputer yang sama
+tidak memakai seat baru).
+
+- Saat pertama dibuka, halaman **Aktivasi** muncul sebelum setup awal. Tanpa license valid
+  aplikasi tidak bisa dipakai.
+- Hasil aktivasi disimpan di `%APPDATA%\GeoPOSTik\license.json`: license key, masa aktif, ID
+  komputer (hash dari MachineGuid), dan waktu pemakaian terakhir, ditandatangani HMAC-SHA256.
+  File yang diubah atau disalin ke komputer lain dianggap tidak ada.
+- Setelah masa aktif habis, atau jam komputer dimundurkan dari pemakaian terakhir, semua menu
+  selain **Pengaturan** diganti kotak license dan command Rust menolak dengan
+  `LICENSE_REQUIRED`. Pengguna menghubungkan komputer ke internet lalu klik **Validasi Ulang**.
+- Kode: `src-tauri/src/license/` (Rust), `features/license/` dan `features/settings/` (Angular).
+
+## 8. Pengembangan & build
 
 - **Pengembangan** bisa di macOS (`npm run tauri dev`): UI dan logika bisa dikerjakan penuh.
   Printer Windows dan WebView2 hanya bisa dites di Windows.
