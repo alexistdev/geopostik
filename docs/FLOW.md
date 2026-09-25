@@ -33,7 +33,7 @@ Electron + Angular (terlalu berat), JavaFX, dan Spring Boot + Angular (terlalu b
   penyesuaian stok, ubah user/hak akses.
 - **Penjagaan jam komputer:** aplikasi offline bergantung pada jam Windows (ED, laporan).
   Bila jam sistem lebih mundur dari transaksi terakhir, aplikasi memberi peringatan dan
-  meminta otorisasi Admin.
+  meminta otorisasi Pemilik.
 - **Cetak struk langsung ESC/POS dari Rust** (bukan lewat dialog print WebView),
   termasuk perintah buka laci uang.
 - **Backup saat aplikasi berjalan** memakai `VACUUM INTO`, bukan menyalin file `.db` mentah.
@@ -44,14 +44,50 @@ Electron + Angular (terlalu berat), JavaFX, dan Spring Boot + Angular (terlalu b
 
 ## 1. Pengguna dan hak akses
 
-| Peran | Yang boleh dilakukan |
-|---|---|
-| **Pemilik/Admin** | Semua menu: pengaturan, user, harga, laporan keuangan, backup/restore |
-| **Apoteker** | Master obat, pembelian, validasi resep, otorisasi obat keras, stok opname, pemusnahan obat |
-| **Kasir** | Penjualan, buka/tutup shift, cetak ulang struk |
+Empat peran. Satu user boleh punya **lebih dari satu peran** (misal pemilik yang juga
+apoteker); haknya adalah gabungan dari semua perannya.
+
+| Peran | Kode | Siapa |
+|---|---|---|
+| **Pemilik** | `OWNER` | Pemilik Sarana Apotek (PSA), sering bukan apoteker |
+| **Apoteker** | `PHARMACIST` | APJ / apoteker pendamping, ber-SIPA |
+| **TTK** | `TECHNICIAN` | Tenaga Teknis Kefarmasian, ber-SIPTTK |
+| **Kasir** | `CASHIER` | Staf non-farmasi |
+
+Matriks hak akses:
+
+| Hak | Pemilik | Apoteker | TTK | Kasir |
+|---|:-:|:-:|:-:|:-:|
+| Penjualan bebas, buka/tutup shift, cetak ulang struk | ✓ | ✓ | ✓ | ✓ |
+| Jual obat keras / OWA (otorisasi PIN) | – | ✓ | – | – |
+| Resep: input | ✓ | ✓ | ✓ | – |
+| Resep: skrining/validasi, narkotika & psikotropika | – | ✓ | – | – |
+| Master obat (data obat) | ✓ | ✓ | ✓ | – |
+| Ubah harga jual & margin | ✓ | *(atur)* | – | – |
+| Penerimaan barang | ✓ | ✓ | ✓ | – |
+| Hutang & pembayaran supplier | ✓ | – | – | – |
+| Stok opname: input hitung | ✓ | ✓ | ✓ | – |
+| Stok opname: setujui penyesuaian | ✓ | ✓ | – | – |
+| Pemusnahan obat | – | ✓ | – | – |
+| Void / retur (otorisasi PIN) | ✓ | ✓ | – | – |
+| Diskon di atas batas (otorisasi PIN) | ✓ | ✓ | – | – |
+| Lihat HPP, laba, nilai persediaan | ✓ | *(atur)* | – | – |
+| Laporan penjualan | ✓ | ✓ | shift sendiri | shift sendiri |
+| Laporan SIPNAP | ✓ | ✓ | – | – |
+| User, pengaturan, backup/restore | ✓ | – | – | – |
+| Log audit | ✓ | – | – | – |
+
+- *(atur)* = diatur pemilik lewat pengaturan (default: apoteker boleh).
+- **HPP dan laba tidak pernah tampil untuk TTK dan kasir**, termasuk di layar penerimaan
+  barang milik TTK (harga beli tetap diinput, tetapi HPP hasil hitung dan margin disembunyikan).
+- Pemilik sengaja tidak memegang kewenangan teknis kefarmasian (obat keras, narkotika,
+  pemusnahan). Bila pemilik juga apoteker, beri dua peran.
 
 Otorisasi (diskon besar, void, retur, obat keras) dilakukan di layar yang sama dengan
-memasukkan PIN user yang berwenang, lalu dicatat di log audit.
+memasukkan PIN user yang punya **hak** tersebut, lalu dicatat di log audit (`authorized_by`).
+
+Operasional: **satu shift per hari**. Layar terkunci otomatis setelah tidak aktif beberapa
+menit (bisa diatur); membuka kunci cukup dengan PIN.
 
 ## 2. Gambaran alur besar
 
@@ -76,7 +112,7 @@ dari transaksi (stok awal, pembelian, penjualan, retur, opname, pemusnahan) dan 
 ```
 Install ─► Isi profil apotek (nama, alamat, SIA, apoteker penanggung jawab, SIPA)
        ─► Pengaturan pajak (PKP ya/tidak), pembulatan harga, margin default
-       ─► Buat akun Admin ─► Atur printer struk ─► Atur lokasi backup
+       ─► Buat akun Pemilik ─► Atur printer struk ─► Atur lokasi backup
        ─► Import master dari Excel (template disediakan): obat + satuan, supplier, dokter
        ─► Stok opname awal (lihat A2)
 ```
@@ -85,7 +121,7 @@ Install ─► Isi profil apotek (nama, alamat, SIA, apoteker penanggung jawab, 
 ```
 Cetak lembar hitung per rak ─► Hitung fisik per obat per batch (no batch + ED)
    ─► Input (atau import Excel) stok awal per batch + harga beli (HPP awal)
-   ─► Review selisih/data kosong ─► Admin kunci stok awal
+   ─► Review selisih/data kosong ─► Pemilik/Apoteker kunci stok awal
    ─► Kartu stok tercatat dengan jenis "STOK AWAL"
 ```
 Setelah dikunci, stok hanya bisa berubah lewat transaksi biasa.
@@ -157,7 +193,7 @@ Input resep: nomor, tanggal, dokter, pasien (nama, umur, alamat)
 ```
 
 ### G. Retur
-- **Retur penjualan:** cari nomor struk ─► pilih item ─► alasan ─► otorisasi apoteker/admin
+- **Retur penjualan:** cari nomor struk ─► pilih item ─► alasan ─► otorisasi PIN pemilik/apoteker
   ─► stok kembali ke batch asal ─► uang dikembalikan.
 - **Retur ke supplier:** pilih faktur/batch (rusak, mendekati ED) ─► stok berkurang
   ─► potong hutang atau tunggu barang pengganti.
@@ -165,7 +201,7 @@ Input resep: nomor, tanggal, dokter, pasien (nama, umur, alamat)
 ### H. Stok opname dan obat kedaluwarsa
 ```
 Mulai opname (per rak/kategori) ─► cetak lembar hitung ─► input stok fisik per batch
-   ─► Sistem hitung selisih ─► Admin setujui ─► penyesuaian stok + kartu stok
+   ─► Sistem hitung selisih ─► Pemilik/Apoteker setujui ─► penyesuaian stok + kartu stok
 
 Dashboard harian: obat ED ≤ 3 bulan, stok di bawah minimal
    ─► Expired ─► batch terkunci otomatis (tidak bisa dijual)
@@ -173,7 +209,7 @@ Dashboard harian: obat ED ≤ 3 bulan, stok di bawah minimal
 ```
 
 ### I. Batal (void) transaksi
-Hanya dengan **otorisasi Admin/Apoteker** dan wajib diberi alasan. Data tidak dihapus,
+Hanya dengan **otorisasi PIN Pemilik/Apoteker** dan wajib diberi alasan. Data tidak dihapus,
 hanya ditandai batal, dan stok dikembalikan ke batch asal lewat kartu stok.
 
 ### J. Laporan
@@ -188,7 +224,7 @@ hanya ditandai batal, dan stok dikembalikan ke batch asal lewat kartu stok.
 
 ### K. Backup dan restore
 Backup otomatis (`VACUUM INTO`) setiap tutup shift dan tutup aplikasi, menyimpan beberapa
-salinan terakhir, dan ada tombol backup manual ke flashdisk. Restore hanya bisa dilakukan Admin.
+salinan terakhir, dan ada tombol backup manual ke flashdisk. Restore hanya bisa dilakukan Pemilik.
 
 ## 4. Daftar layar
 

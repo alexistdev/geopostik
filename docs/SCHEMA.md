@@ -32,15 +32,27 @@ diulang di daftar di bawah agar ringkas.
 | id | INTEGER PK | |
 | username | TEXT UNIQUE | |
 | full_name | TEXT | |
-| role | TEXT | `ADMIN` / `PHARMACIST` / `CASHIER` |
 | password_hash | TEXT | argon2 |
-| pin_hash | TEXT NULL | PIN otorisasi (Admin/Apoteker) |
+| pin_hash | TEXT NULL | PIN untuk otorisasi dan buka kunci layar |
+| license_type | TEXT NULL | `SIPA` / `SIPTTK` |
+| license_number | TEXT NULL | dicetak di etiket, copy resep, laporan SIPNAP |
 | is_active | INTEGER | |
+
+### `user_roles`
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| user_id | FK users | |
+| role | TEXT | `OWNER` / `PHARMACIST` / `TECHNICIAN` / `CASHIER` |
+| PK | (user_id, role) | satu user bisa punya beberapa peran |
+
+Daftar hak (permission) dan pemetaan peran → hak didefinisikan **di kode Rust** (enum),
+bukan di database. Dua hak apoteker yang bisa diatur pemilik disimpan di `settings`:
+`access.pharmacist_can_view_cost` dan `access.pharmacist_can_edit_price`.
 
 ### `settings`
 | Kolom | Tipe | Keterangan |
 |---|---|---|
-| key | TEXT PK | misal `pharmacy.profile`, `tax.is_pkp`, `price.rounding`, `price.default_margin_bp`, `printer`, `backup` |
+| key | TEXT PK | misal `pharmacy.profile`, `tax.is_pkp`, `price.rounding`, `price.default_margin_bp`, `printer.receipt`, `backup`, `access.*`, `session.lock_after_minutes` |
 | value | TEXT | JSON |
 
 ### `audit_logs`
@@ -440,3 +452,5 @@ products ─┬─ product_units ── product_barcodes
 | Penjualan pecahan satuan terkecil | Tidak ada, qty selalu integer |
 | Harga grosir/bertingkat | Ya, per jumlah per satuan jual (`price_tiers`) |
 | Pembayaran split | Ya (`sale_payments` banyak baris per nota) |
+| Peran | 4 peran (`OWNER`, `PHARMACIST`, `TECHNICIAN`, `CASHIER`), satu user bisa multi-peran (`user_roles`) |
+| HPP & laba | Disembunyikan dari TTK dan kasir; untuk apoteker diatur pemilik |
