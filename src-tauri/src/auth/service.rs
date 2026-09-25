@@ -12,6 +12,10 @@ pub fn needs_setup(conn: &Connection) -> AppResult<bool> {
     Ok(repo::count_users(conn)? == 0)
 }
 
+pub fn pharmacy_name(conn: &Connection) -> AppResult<Option<String>> {
+    Ok(settings::get::<PharmacyProfile>(conn, settings::PHARMACY_PROFILE)?.map(|p| p.name))
+}
+
 /// Setup awal: membuat akun pemilik pertama. Hanya bisa bila belum ada user sama sekali.
 pub fn setup_owner(conn: &mut Connection, input: &SetupInput) -> AppResult<SessionUser> {
     let pharmacy_name = required(&input.pharmacy_name, "Nama apotek")?;

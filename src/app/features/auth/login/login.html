@@ -1,20 +1,127 @@
-<form class="card" [formGroup]="form" (ngSubmit)="submit()">
-  <h1 class="title">GeoPOSTik</h1>
-  <p class="subtitle">Masuk untuk melanjutkan</p>
+<section class="brand" aria-hidden="true">
+  <div class="grain"></div>
+  <div class="glow glow-a"></div>
+  <div class="glow glow-b"></div>
 
-  @if (error(); as message) {
-    <p-message severity="error">{{ message }}</p-message>
-  }
+  <span class="pill pill-1"></span>
+  <span class="pill pill-2"></span>
+  <span class="pill pill-3"></span>
+  <span class="tablet tablet-1"></span>
+  <span class="tablet tablet-2"></span>
 
-  <div class="field">
-    <label for="username">Username</label>
-    <input pInputText id="username" formControlName="username" autocomplete="username" autofocus />
+  <header class="logo reveal" style="--d: 0ms">
+    <span class="mark"><i class="pi pi-plus"></i></span>
+    <span>GeoPOSTik</span>
+  </header>
+
+  <div class="headline">
+    <p class="eyebrow reveal" style="--d: 120ms">
+      {{ pharmacyName() ? 'Apotek ' + pharmacyName() : 'Sistem kasir apotek' }}
+    </p>
+    <h1 class="reveal" style="--d: 200ms">
+      Setiap resep,<br />
+      <em>tercatat rapi.</em>
+    </h1>
+    <p class="lede reveal" style="--d: 300ms">
+      Kasir, stok per batch, dan tanggal kedaluwarsa dalam satu aplikasi yang tetap berjalan
+      tanpa internet.
+    </p>
   </div>
 
-  <div class="field">
-    <label for="password">Password</label>
-    <input pInputText id="password" type="password" formControlName="password" autocomplete="current-password" />
-  </div>
+  <footer class="now reveal" style="--d: 420ms">
+    <div class="clock">
+      <strong>{{ time() }}</strong>
+      <span>{{ date() }}</span>
+    </div>
+    <div class="chips">
+      <span class="chip"><i class="dot"></i>Berjalan offline</span>
+      @if (license.status(); as st) {
+        @if (st.state === 'ACTIVE') {
+          <span class="chip"><i class="pi pi-verified"></i>License aktif · sisa {{ st.daysLeft }} hari</span>
+        } @else {
+          <span class="chip warn"><i class="pi pi-lock"></i>License perlu divalidasi ulang</span>
+        }
+      }
+    </div>
+  </footer>
+</section>
 
-  <p-button type="submit" label="Masuk" icon="pi pi-sign-in" [loading]="loading()" [fluid]="true" />
-</form>
+<section class="panel">
+  @let shakeKey = errorCount();
+  <form
+    class="card"
+    [class.shake]="shakeKey % 2 === 1"
+    [class.shake-alt]="shakeKey > 0 && shakeKey % 2 === 0"
+    [formGroup]="form"
+    (ngSubmit)="submit()"
+    novalidate
+  >
+    <p class="hello reveal" style="--d: 150ms">{{ greeting() }}</p>
+    <h2 class="reveal" style="--d: 220ms">Masuk untuk memulai shift</h2>
+    <p class="sub reveal" style="--d: 280ms">Gunakan akun yang dibuat oleh pemilik apotek.</p>
+
+    @if (error(); as message) {
+      <div class="alert" role="alert">
+        <i class="pi pi-exclamation-circle"></i>
+        <span>{{ message }}</span>
+      </div>
+    }
+
+    <label class="field reveal" style="--d: 340ms" [class.invalid]="invalid('username')">
+      <span class="label">Username</span>
+      <span class="control">
+        <i class="pi pi-user"></i>
+        <input formControlName="username" autocomplete="username" autofocus spellcheck="false" placeholder="nama.pengguna" />
+      </span>
+      @if (invalid('username')) {
+        <small class="hint">Username wajib diisi</small>
+      }
+    </label>
+
+    <label class="field reveal" style="--d: 400ms" [class.invalid]="invalid('password')">
+      <span class="label">Password</span>
+      <span class="control">
+        <i class="pi pi-lock"></i>
+        <input
+          [type]="showPassword() ? 'text' : 'password'"
+          formControlName="password"
+          autocomplete="current-password"
+          placeholder="••••••••"
+          (keydown)="checkCapsLock($event)"
+          (keyup)="checkCapsLock($event)"
+        />
+        <button
+          type="button"
+          class="peek"
+          tabindex="-1"
+          [attr.aria-label]="showPassword() ? 'Sembunyikan password' : 'Tampilkan password'"
+          (click)="showPassword.set(!showPassword())"
+        >
+          <i [class]="showPassword() ? 'pi pi-eye-slash' : 'pi pi-eye'"></i>
+        </button>
+      </span>
+      @if (capsLock()) {
+        <small class="hint caps"><i class="pi pi-arrow-up"></i> Caps Lock aktif</small>
+      } @else if (invalid('password')) {
+        <small class="hint">Password wajib diisi</small>
+      }
+    </label>
+
+    <button type="submit" class="submit reveal" style="--d: 470ms" [disabled]="loading()">
+      @if (loading()) {
+        <i class="pi pi-spin pi-spinner"></i>
+        <span>Memeriksa…</span>
+      } @else {
+        <span>Masuk</span>
+        <i class="pi pi-arrow-right"></i>
+      }
+    </button>
+
+    <p class="help reveal" style="--d: 530ms">
+      <i class="pi pi-info-circle"></i>
+      Lupa password? Minta pemilik apotek untuk mengatur ulang.
+    </p>
+  </form>
+
+  <p class="version">GeoPOSTik v0.1.0</p>
+</section>

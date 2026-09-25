@@ -23,6 +23,8 @@ pub struct SessionUser {
 pub struct AppStatus {
     pub license: LicenseStatus,
     pub needs_setup: bool,
+    /// Nama apotek dari setup awal, untuk halaman login.
+    pub pharmacy_name: Option<String>,
     pub session: Option<SessionUser>,
 }
 

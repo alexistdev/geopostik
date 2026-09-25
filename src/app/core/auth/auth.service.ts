@@ -24,10 +24,12 @@ export class AuthService {
   private readonly license = inject(LicenseService);
   private readonly _user = signal<SessionUser | null>(null);
   private readonly _needsSetup = signal(false);
+  private readonly _pharmacyName = signal<string | null>(null);
   private status: Promise<void> | null = null;
 
   readonly user = this._user.asReadonly();
   readonly needsSetup = this._needsSetup.asReadonly();
+  readonly pharmacyName = this._pharmacyName.asReadonly();
   readonly roleLabel = computed(() =>
     (this._user()?.roles ?? []).map((r) => ROLE_LABELS[r]).join(', '),
   );
@@ -39,6 +41,7 @@ export class AuthService {
       .then((s) => {
         this.license.set(s.license);
         this._needsSetup.set(s.needsSetup);
+        this._pharmacyName.set(s.pharmacyName);
         this._user.set(s.session);
       })
       .catch((e) => {
@@ -51,6 +54,7 @@ export class AuthService {
   async setupOwner(input: SetupInput): Promise<void> {
     const user = await authApi.setupOwner(input);
     this._needsSetup.set(false);
+    this._pharmacyName.set(input.pharmacyName.trim());
     this._user.set(user);
   }
 

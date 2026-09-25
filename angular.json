@@ -32,6 +32,9 @@
             ],
             "styles": [
               "node_modules/primeicons/primeicons.css",
+              "node_modules/@fontsource-variable/fraunces/full.css",
+              "node_modules/@fontsource-variable/fraunces/full-italic.css",
+              "node_modules/@fontsource-variable/plus-jakarta-sans/wght.css",
               "src/styles.scss"
             ],
             "allowedCommonJsDependencies": [
@@ -48,8 +51,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
-                  "maximumError": "8kB"
+                  "maximumWarning": "12kB",
+                  "maximumError": "16kB"
                 }
               ],
               "outputHashing": "all"

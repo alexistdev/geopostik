@@ -12,6 +12,7 @@ pub async fn app_status(state: State<'_, AppState>) -> AppResult<AppStatus> {
     Ok(AppStatus {
         license,
         needs_setup: service::needs_setup(&conn)?,
+        pharmacy_name: service::pharmacy_name(&conn)?,
         session: state.session(),
     })
 }

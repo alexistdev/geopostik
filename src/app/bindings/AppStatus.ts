@@ -5,4 +5,8 @@ import type { SessionUser } from "./SessionUser";
 /**
  * Status aplikasi saat dibuka: license aktif? perlu setup awal? sudah ada sesi?
  */
-export type AppStatus = { license: LicenseStatus, needsSetup: boolean, session: SessionUser | null, };
+export type AppStatus = { license: LicenseStatus, needsSetup: boolean, 
+/**
+ * Nama apotek dari setup awal, untuk halaman login.
+ */
+pharmacyName: string | null, session: SessionUser | null, };

@@ -30,14 +30,24 @@ export function toApiError(e: unknown): ApiError {
   if (isAppError(e)) {
     return new ApiError(e.code, e.message);
   }
+  // Halaman dibuka di browser biasa, bukan di jendela Tauri.
+  if (!isTauri()) {
+    return new ApiError(
+      'INTERNAL',
+      'Tidak terhubung ke backend. Buka aplikasi di jendela GeoPOSTik ("npm run tauri dev"), bukan di browser.',
+    );
+  }
   if (typeof e === 'string') {
     return new ApiError('INTERNAL', e);
   }
-  // Biasanya karena halaman dibuka di browser biasa, bukan di jendela Tauri.
-  return new ApiError(
-    'INTERNAL',
-    'Tidak terhubung ke backend. Jalankan aplikasi dengan "npm run tauri dev".',
-  );
+  // Error lain (misal dari halaman tujuan setelah login) ditampilkan apa adanya agar mudah dilacak.
+  console.error(e);
+  const detail = e instanceof Error ? e.message : JSON.stringify(e);
+  return new ApiError('INTERNAL', `Terjadi kesalahan: ${detail}`);
+}
+
+function isTauri(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
 
 function isAppError(e: unknown): e is AppError {
