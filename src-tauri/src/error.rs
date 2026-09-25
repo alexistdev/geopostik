@@ -4,7 +4,6 @@ use ts_rs::TS;
 /// Error yang dikirim ke frontend sebagai `{ code, message }`.
 /// Pesan untuk pengguna ditulis dalam bahasa Indonesia.
 #[derive(Debug, thiserror::Error)]
-#[allow(dead_code)] // Forbidden/NotFound dipakai modul domain berikutnya
 pub enum AppError {
     #[error("{0}")]
     Validation(String),

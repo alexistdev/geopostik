@@ -1,6 +1,7 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { definePreset } from '@primeuix/themes';
+import { MessageService } from 'primeng/api';
 import Aura from '@primeuix/themes/aura';
 import { providePrimeNG } from 'primeng/config';
 
@@ -28,6 +29,7 @@ const GeoPreset = definePreset(Aura, {
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    MessageService,
     provideRouter(routes, withComponentInputBinding()),
     providePrimeNG({
       // Mode gelap hanya bila class .app-dark dipasang (tidak ikut pengaturan Windows).

@@ -1,0 +1,113 @@
+<div class="toolbar">
+  <p-iconfield class="search">
+    <p-inputicon class="pi pi-search" />
+    <input
+      pInputText
+      type="search"
+      placeholder="Cari nama, generik, kode, atau scan barcode"
+      [(ngModel)]="q"
+      (ngModelChange)="searchChanged()"
+      autofocus
+    />
+  </p-iconfield>
+
+  <p-select
+    [options]="categories()"
+    optionLabel="name"
+    optionValue="id"
+    [(ngModel)]="categoryId"
+    (onChange)="load(0)"
+    placeholder="Semua kategori"
+    [showClear]="true"
+    appendTo="body"
+  />
+
+  <p-select
+    [options]="drugClasses"
+    optionLabel="label"
+    optionValue="value"
+    [(ngModel)]="drugClass"
+    (onChange)="load(0)"
+    placeholder="Semua golongan"
+    [showClear]="true"
+    appendTo="body"
+  />
+
+  <label class="inactive">
+    <p-checkbox [(ngModel)]="includeInactive" [binary]="true" (onChange)="load(0)" />
+    Tampilkan nonaktif
+  </label>
+
+  <span class="spacer"></span>
+
+  @if (auth.can('PRODUCT_MANAGE')) {
+    <p-button label="Tambah Obat" icon="pi pi-plus" (onClick)="editing.set(null)" />
+  }
+</div>
+
+<p-table
+  [value]="rows()"
+  [lazy]="true"
+  (onLazyLoad)="load($event.first ?? 0)"
+  [paginator]="true"
+  [rows]="pageSize"
+  [totalRecords]="total()"
+  [loading]="loading()"
+  [rowHover]="true"
+  size="small"
+  [scrollable]="true"
+  scrollHeight="flex"
+  styleClass="products"
+>
+  <ng-template #header>
+    <tr>
+      <th style="width: 7rem">Kode</th>
+      <th>Nama</th>
+      <th style="width: 10rem">Kategori</th>
+      <th style="width: 9rem">Golongan</th>
+      <th style="width: 10rem" class="num">Harga jual</th>
+      <th style="width: 9rem" class="num">Stok</th>
+      <th style="width: 5rem">Rak</th>
+    </tr>
+  </ng-template>
+
+  <ng-template #body let-row>
+    <tr class="clickable" [class.inactive-row]="!row.isActive" (click)="editing.set(row.id)">
+      <td>{{ row.code }}</td>
+      <td>
+        <div class="name">{{ row.name }}</div>
+        @if (row.genericName) {
+          <small>{{ row.genericName }}</small>
+        }
+      </td>
+      <td>{{ row.categoryName ?? '–' }}</td>
+      <td>
+        <p-tag [value]="drugClassInfo(row.drugClass).label" [severity]="drugClassInfo(row.drugClass).severity" />
+        @if (row.isOwa) {
+          <p-tag value="OWA" severity="secondary" class="owa" />
+        }
+      </td>
+      <td class="num">
+        @if (row.salePrice) {
+          {{ row.salePrice | rupiah }} <small>/ {{ row.saleUnitName }}</small>
+        } @else {
+          <span class="missing">Belum ada harga</span>
+        }
+      </td>
+      <td class="num" [class.low]="isLowStock(row)">
+        {{ row.stockBase }} <small>{{ row.baseUnitName }}</small>
+      </td>
+      <td>{{ row.rackLocation ?? '' }}</td>
+    </tr>
+  </ng-template>
+
+  <ng-template #emptymessage>
+    <tr>
+      <td colspan="7" class="empty">Tidak ada obat yang cocok.</td>
+    </tr>
+  </ng-template>
+</p-table>
+
+@if (editing() !== undefined) {
+  <app-product-dialog [productId]="editing() ?? null" (closed)="closeDialog($event)" />
+}

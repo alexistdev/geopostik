@@ -2,6 +2,7 @@ mod audit;
 mod auth;
 mod db;
 mod error;
+mod master;
 mod settings;
 mod state;
 
@@ -62,6 +63,15 @@ pub fn run() {
             auth::commands::setup_owner,
             auth::commands::login,
             auth::commands::logout,
+            master::commands::category_list,
+            master::commands::category_save,
+            master::commands::unit_list,
+            master::commands::unit_create,
+            master::commands::product_list,
+            master::commands::product_get,
+            master::commands::product_save,
+            master::commands::product_prices_save,
+            master::commands::product_set_active,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

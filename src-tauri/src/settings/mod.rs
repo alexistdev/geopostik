@@ -33,6 +33,25 @@ pub fn set<T: Serialize>(conn: &Connection, key: &str, value: &T) -> AppResult<(
     Ok(())
 }
 
+pub const PRICE_DEFAULT_MARGIN_BP: &str = "price.default_margin_bp";
+pub const PRICE_ROUNDING: &str = "price.rounding";
+
+/// Pengaturan harga jual otomatis.
+#[derive(Debug, Clone, Copy)]
+pub struct PriceSettings {
+    /// Margin bila obat dan kategori tidak punya margin sendiri.
+    pub default_margin_bp: i64,
+    /// Harga otomatis dibulatkan ke atas ke kelipatan ini (rupiah).
+    pub rounding: i64,
+}
+
+pub fn price(conn: &Connection) -> AppResult<PriceSettings> {
+    Ok(PriceSettings {
+        default_margin_bp: get(conn, PRICE_DEFAULT_MARGIN_BP)?.unwrap_or(2_000),
+        rounding: get(conn, PRICE_ROUNDING)?.unwrap_or(100),
+    })
+}
+
 pub fn access(conn: &Connection) -> AppResult<AccessSettings> {
     let default = AccessSettings::default();
     Ok(AccessSettings {

@@ -1,0 +1,70 @@
+<div class="toolbar">
+  <span class="muted">Margin kategori dipakai untuk harga otomatis obat yang tidak punya margin sendiri.</span>
+  @if (canEdit) {
+    <p-button label="Tambah Kategori" icon="pi pi-plus" (onClick)="open()" />
+  }
+</div>
+
+<p-table [value]="categories()" size="small" [rowHover]="true">
+  <ng-template #header>
+    <tr>
+      <th>Nama</th>
+      @if (showMargin) {
+        <th style="width: 12rem">Margin</th>
+      }
+      <th style="width: 8rem">Status</th>
+    </tr>
+  </ng-template>
+  <ng-template #body let-c>
+    <tr [class.clickable]="canEdit" (click)="open(c)">
+      <td>{{ c.name }}</td>
+      @if (showMargin) {
+        <td>
+          @if (c.marginBp != null) {
+            {{ bpToPercent(c.marginBp) }}%
+          } @else {
+            <span class="muted">default</span>
+          }
+        </td>
+      }
+      <td>
+        <p-tag [value]="c.isActive ? 'Aktif' : 'Nonaktif'" [severity]="c.isActive ? 'success' : 'secondary'" />
+      </td>
+    </tr>
+  </ng-template>
+  <ng-template #emptymessage>
+    <tr>
+      <td colspan="3" class="muted">Belum ada kategori.</td>
+    </tr>
+  </ng-template>
+</p-table>
+
+@if (form; as f) {
+  <p-dialog
+    [header]="f.id ? 'Ubah kategori' : 'Kategori baru'"
+    [visible]="true"
+    (visibleChange)="form = null"
+    [modal]="true"
+    [style]="{ width: '420px' }"
+  >
+    <div class="field">
+      <label for="catName">Nama</label>
+      <input pInputText id="catName" [(ngModel)]="f.name" autofocus (keydown.enter)="save()" />
+    </div>
+    @if (canEditMargin) {
+      <div class="field">
+        <label for="catMargin">Margin (%)</label>
+        <p-inputnumber inputId="catMargin" [(ngModel)]="f.marginPercent" [maxFractionDigits]="2" suffix="%" locale="id-ID" [min]="0" placeholder="Ikut default" />
+      </div>
+    }
+    <label class="check">
+      <p-checkbox [(ngModel)]="f.isActive" [binary]="true" />
+      Aktif
+    </label>
+
+    <ng-template #footer>
+      <p-button label="Batal" severity="secondary" [text]="true" (onClick)="form = null" />
+      <p-button label="Simpan" icon="pi pi-check" [loading]="saving()" (onClick)="save()" />
+    </ng-template>
+  </p-dialog>
+}

@@ -1,0 +1,131 @@
+.plain {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0 1rem;
+
+  .span-2 {
+    grid-column: span 2;
+  }
+
+  p-select,
+  p-inputnumber {
+    width: 100%;
+  }
+}
+
+h3 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1rem;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.hint {
+  color: var(--p-text-muted-color);
+  font-size: 0.85rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--p-text-muted-color);
+    padding: 0.25rem 0.5rem 0.25rem 0;
+  }
+
+  td {
+    padding: 0.25rem 0.5rem 0.25rem 0;
+    vertical-align: middle;
+  }
+
+  .center {
+    text-align: center;
+  }
+}
+
+.base {
+  color: var(--p-text-muted-color);
+}
+
+.unit-actions,
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+
+  .spacer {
+    flex: 1;
+  }
+}
+
+.footer {
+  margin-top: 1.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--p-surface-200);
+}
+
+.price-card {
+  border: 1px solid var(--p-surface-200);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-top: 0.75rem;
+}
+
+.price-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  small {
+    color: var(--p-text-muted-color);
+  }
+
+  .cost {
+    color: var(--p-orange-700);
+  }
+
+  .spacer {
+    flex: 1;
+  }
+
+  ::ng-deep .price-input {
+    width: 10rem;
+    text-align: right;
+  }
+}
+
+.tiers {
+  margin-top: 0.5rem;
+}
+
+.computed {
+  margin-left: 0.5rem;
+  color: var(--p-text-muted-color);
+}
+
+.price-head p-select,
+.tiers p-select {
+  width: 9rem;
+}
+
+.unit-actions input {
+  width: 16rem;
+}

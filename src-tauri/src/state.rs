@@ -35,14 +35,12 @@ impl AppState {
     }
 
     /// User yang sedang login; error bila belum login.
-    #[allow(dead_code)] // dipakai modul domain berikutnya
     pub fn current_user(&self) -> AppResult<SessionUser> {
         self.session()
             .ok_or_else(|| AppError::Unauthenticated("Silakan login terlebih dahulu".into()))
     }
 
     /// User yang sedang login dan memiliki `permission`.
-    #[allow(dead_code)] // dipakai modul domain berikutnya
     pub fn require(&self, permission: Permission) -> AppResult<SessionUser> {
         let user = self.current_user()?;
         if user.permissions.contains(&permission) {
