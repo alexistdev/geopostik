@@ -171,7 +171,7 @@ pub fn close_shift(conn: &mut Connection, user: &SessionUser, input: &ShiftClose
         }
         if open.user_id != user.id && !can(user, Permission::ReportSales) {
             return Err(AppError::Validation(format!(
-                "Shift ini hanya bisa ditutup oleh {} atau Pemilik/Apoteker",
+                "Shift ini hanya bisa ditutup oleh {} atau Pemilik",
                 open.opened_by
             )));
         }

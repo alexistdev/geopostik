@@ -59,7 +59,7 @@ Matriks hak akses:
 | Hak | Pemilik | Apoteker | TTK | Kasir |
 |---|:-:|:-:|:-:|:-:|
 | Penjualan bebas, cetak ulang struk | ✓ | ✓ | ✓ | ✓ |
-| Buka/tutup shift (uang laci) | ✓ | ✓ | – | ✓ |
+| Buka/tutup shift (uang laci) | ✓ | – | – | ✓ |
 | Jual obat keras / OWA (otorisasi PIN) | – | ✓ | – | – |
 | Resep: input | ✓ | ✓ | ✓ | – |
 | Resep: skrining/validasi, narkotika & psikotropika | – | ✓ | – | – |
@@ -79,8 +79,9 @@ Matriks hak akses:
 | Log audit | ✓ | – | – | – |
 
 - *(atur)* = diatur pemilik lewat pengaturan (default: apoteker boleh).
-- **TTK boleh melayani penjualan** hanya saat ada shift terbuka milik kasir/apoteker/pemilik; TTK
-  tidak membuka atau menutup shift karena tidak memegang tanggung jawab uang laci.
+- **TTK dan apoteker boleh melayani penjualan** hanya saat ada shift terbuka milik kasir/pemilik;
+  keduanya tidak membuka atau menutup shift karena uang laci tanggung jawab kasir dan pemilik.
+  Apoteker yang juga pemilik (dua peran) tetap bisa membuka/menutup shift.
 - **HPP dan laba tidak pernah tampil untuk TTK dan kasir**, termasuk di layar penerimaan
   barang milik TTK (harga beli tetap diinput, tetapi HPP hasil hitung dan margin disembunyikan).
 - Pemilik sengaja tidak memegang kewenangan teknis kefarmasian (obat keras, narkotika,
@@ -204,7 +205,7 @@ Scan barcode / cari nama ─► pilih satuan (tablet/strip/box) ─► jumlah
 
 Di aplikasi (menu **Kasir**, modul `src-tauri/src/sales/`):
 - Layar kasir hanya bisa dipakai saat shift terbuka (satu shift terbuka untuk seluruh aplikasi).
-  Shift ditutup oleh pembukanya atau Pemilik/Apoteker: sistem menghitung tunai seharusnya di laci
+  Shift dibuka oleh Kasir/Pemilik dan ditutup oleh pembukanya atau Pemilik: sistem menghitung tunai seharusnya di laci
   (modal + bagian tunai nota yang tidak batal), kasir mengisi hasil hitung fisik, selisih dicatat.
 - Pencarian khusus kasir (hak `SALE_CREATE`, tanpa HPP): barcode persis langsung memilih obat
   dan satuannya; scan ulang obat + satuan yang sama menambah qty baris (tier dihitung ulang).
