@@ -1,0 +1,114 @@
+@use './stock-shared';
+
+:host {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 150px);
+}
+
+.data-card {
+  flex: 1;
+  min-height: 0;
+}
+
+p-table {
+  flex: 1;
+  min-height: 0;
+}
+
+:host ::ng-deep .product-picker input {
+  width: 380px;
+}
+
+.suggestion {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+
+  .s-name {
+    flex: 1;
+    font-weight: 600;
+  }
+}
+
+.date {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+
+  span {
+    color: var(--p-text-muted-color);
+  }
+}
+
+.block {
+  display: block;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid var(--p-content-border-color);
+  background: var(--p-surface-50);
+}
+
+.sum {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 10px;
+  background: var(--p-content-background);
+
+  strong {
+    font-size: 1.25rem;
+    font-variant-numeric: tabular-nums;
+
+    span {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--p-text-muted-color);
+    }
+  }
+
+  &.in strong {
+    color: var(--p-emerald-700);
+  }
+
+  &.out strong {
+    color: var(--p-red-700);
+  }
+
+  &.closing {
+    border-color: var(--p-primary-300);
+    background: var(--p-primary-50);
+  }
+}
+
+.pick-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 4rem 1rem;
+  text-align: center;
+
+  i {
+    font-size: 2.25rem;
+    color: var(--p-surface-400);
+  }
+}
+
+:host-context(.app-dark) {
+  .summary {
+    background: var(--p-surface-900);
+  }
+
+  .sum.closing {
+    background: color-mix(in srgb, var(--p-primary-500) 15%, transparent);
+  }
+}

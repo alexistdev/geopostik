@@ -1,0 +1,143 @@
+@use './stock-shared';
+
+:host {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 150px);
+}
+
+.data-card {
+  flex: 1;
+  min-height: 0;
+}
+
+p-table {
+  flex: 1;
+  min-height: 0;
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1.25rem;
+  border-bottom: 1px solid var(--p-content-border-color);
+  background: var(--p-surface-50);
+
+  i {
+    margin-right: 0.35rem;
+    font-size: 0.8rem;
+  }
+
+  .hint {
+    flex: 1;
+    min-width: 12rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.8rem;
+    color: var(--p-text-muted-color);
+  }
+}
+
+.block {
+  display: block;
+}
+
+.danger-text {
+  color: var(--p-red-600);
+}
+
+.batch-row > td {
+  padding: 0 !important;
+  background: var(--p-surface-50);
+}
+
+.batch-panel {
+  padding: 0.75rem 1rem 1rem 3.5rem;
+}
+
+.batch-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+
+  strong i {
+    margin-right: 0.4rem;
+    color: var(--p-primary-600);
+  }
+
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+  }
+}
+
+.batch-loading {
+  padding: 0.5rem 0;
+}
+
+.batch-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--p-content-background);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 10px;
+  overflow: hidden;
+
+  th,
+  td {
+    padding: 0.45rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--p-content-border-color);
+  }
+
+  th {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--p-text-muted-color);
+    background: var(--p-surface-100);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .num {
+    text-align: right;
+  }
+
+  .strong {
+    font-weight: 600;
+  }
+
+  .dim td {
+    opacity: 0.55;
+  }
+
+  .center {
+    text-align: center;
+  }
+}
+
+.batch-actions {
+  width: 6rem;
+  white-space: nowrap;
+  text-align: right !important;
+}
+
+:host-context(.app-dark) {
+  .filter-bar,
+  .batch-row > td {
+    background: var(--p-surface-900);
+  }
+
+  .batch-table th {
+    background: var(--p-surface-800);
+  }
+}

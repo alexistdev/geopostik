@@ -1,0 +1,148 @@
+<section class="data-card">
+  <div class="toolbar">
+    <p-autocomplete
+      [(ngModel)]="product"
+      [suggestions]="suggestions()"
+      (completeMethod)="search($event.query)"
+      (onSelect)="productSelected($event.value)"
+      (onClear)="clear()"
+      optionLabel="name"
+      [dropdown]="true"
+      [forceSelection]="true"
+      [showClear]="true"
+      placeholder="Pilih obat: cari nama, kode, atau scan barcode"
+      appendTo="body"
+      styleClass="product-picker"
+      [autofocus]="!product"
+    >
+      <ng-template #item let-p>
+        <div class="suggestion">
+          <span class="mono">{{ p.code }}</span>
+          <span class="s-name">{{ p.name }}</span>
+          <small>{{ p.stockBase }} {{ p.baseUnitName }}</small>
+        </div>
+      </ng-template>
+    </p-autocomplete>
+
+    @if (info(); as i) {
+      <p-select
+        [options]="i.batches"
+        optionValue="id"
+        [(ngModel)]="batchId"
+        (onChange)="filterChanged()"
+        placeholder="Semua batch"
+        [showClear]="true"
+        appendTo="body"
+      >
+        <ng-template #selectedItem let-b>{{ b.batchNumber }}</ng-template>
+        <ng-template #item let-b>{{ batchLabel(b) }}</ng-template>
+      </p-select>
+    }
+
+    <label class="date">
+      <span>Dari</span>
+      <input pInputText type="date" [(ngModel)]="dateFrom" (ngModelChange)="load(0)" />
+    </label>
+    <label class="date">
+      <span>s/d</span>
+      <input pInputText type="date" [(ngModel)]="dateTo" (ngModelChange)="load(0)" />
+    </label>
+    <span class="spacer"></span>
+    <p-button icon="pi pi-refresh" severity="secondary" [outlined]="true" [disabled]="!info()" (onClick)="load()" ariaLabel="Muat ulang" />
+  </div>
+
+  @if (info(); as i) {
+    @if (page(); as p) {
+      <div class="summary">
+        <div class="sum">
+          <small>Saldo awal</small>
+          <strong>{{ p.openingBalance }}</strong>
+        </div>
+        <div class="sum in">
+          <small>Masuk</small>
+          <strong>+{{ p.totalIn }}</strong>
+        </div>
+        <div class="sum out">
+          <small>Keluar</small>
+          <strong>−{{ p.totalOut }}</strong>
+        </div>
+        <div class="sum closing">
+          <small>Saldo akhir</small>
+          <strong>{{ p.closingBalance }} <span>{{ i.baseUnitName }}</span></strong>
+        </div>
+      </div>
+    }
+
+    <p-table
+      [value]="page()?.rows ?? []"
+      [lazy]="true"
+      [lazyLoadOnInit]="false"
+      (onLazyLoad)="pageChanged($event.first ?? 0, $event.rows ?? pageSize)"
+      [paginator]="true"
+      [first]="first()"
+      [rows]="pageSize"
+      [rowsPerPageOptions]="pageSizes"
+      [totalRecords]="page()?.total ?? 0"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="Menampilkan {first}–{last} dari {totalRecords}"
+      [loading]="loading()"
+      [rowHover]="true"
+      [scrollable]="true"
+      scrollHeight="flex"
+      styleClass="data-table compact"
+    >
+      <ng-template #header>
+        <tr>
+          <th style="width: 9.5rem">Waktu</th>
+          <th style="width: 9rem">Jenis</th>
+          <th style="width: 11rem">Dokumen</th>
+          <th style="width: 10rem">Batch</th>
+          <th style="width: 7rem" class="num">Masuk</th>
+          <th style="width: 7rem" class="num">Keluar</th>
+          <th style="width: 7rem" class="num">Saldo</th>
+          <th style="width: 8rem">User</th>
+          <th>Keterangan</th>
+        </tr>
+      </ng-template>
+      <ng-template #body let-row>
+        @let t = movementTypes[row.movementType];
+        <tr>
+          <td>{{ row.createdAt | dateTime }}</td>
+          <td><p-tag [value]="t.label" [severity]="t.severity" [rounded]="true" /></td>
+          <td class="mono">{{ refLabel(row) }}</td>
+          <td>
+            <span class="mono">{{ row.batchNumber }}</span>
+            <small class="block">ED {{ formatDate(row.expiryDate) }}</small>
+          </td>
+          <td class="num">
+            @if (row.qtyChangeBase > 0) {
+              <span class="qty-in">+{{ row.qtyChangeBase }}</span>
+            }
+          </td>
+          <td class="num">
+            @if (row.qtyChangeBase < 0) {
+              <span class="qty-out">−{{ -row.qtyChangeBase }}</span>
+            }
+          </td>
+          <td class="num"><strong>{{ row.balanceBase }}</strong></td>
+          <td>{{ row.username ?? '–' }}</td>
+          <td class="muted">{{ row.note ?? '' }}</td>
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr class="empty-row">
+          <td colspan="9">
+            <i class="pi pi-inbox empty-icon"></i>
+            <div>Belum ada keluar-masuk stok pada rentang ini.</div>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  } @else {
+    <div class="pick-hint">
+      <i class="pi pi-book"></i>
+      <strong>Pilih obat untuk melihat kartu stoknya</strong>
+      <small>Setiap perubahan stok (stok awal, pembelian, penjualan, opname) tercatat di sini dan tidak bisa diubah.</small>
+    </div>
+  }
+</section>

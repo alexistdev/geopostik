@@ -2,6 +2,7 @@ mod audit;
 mod auth;
 mod db;
 mod error;
+mod inventory;
 mod license;
 mod master;
 mod settings;
@@ -94,6 +95,21 @@ pub fn run() {
             master::commands::product_delete_many,
             audit::commands::audit_page,
             audit::commands::audit_users,
+            inventory::commands::stock_list,
+            inventory::commands::stock_batches,
+            inventory::commands::batch_set_locked,
+            inventory::commands::stock_card,
+            inventory::commands::opname_page,
+            inventory::commands::opname_get,
+            inventory::commands::opname_create,
+            inventory::commands::opname_item_save,
+            inventory::commands::opname_item_delete,
+            inventory::commands::opname_fill,
+            inventory::commands::opname_submit,
+            inventory::commands::opname_reopen,
+            inventory::commands::opname_cancel,
+            inventory::commands::opname_approve,
+            inventory::commands::stock_opening_lock,
             users::commands::user_list,
             users::commands::user_get,
             users::commands::user_save,

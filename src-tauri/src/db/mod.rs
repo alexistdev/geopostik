@@ -7,6 +7,7 @@ use rusqlite_migration::{M, Migrations};
 use crate::error::{AppError, AppResult};
 
 mod seed;
+pub mod sequence;
 
 static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
     Migrations::new(vec![
@@ -21,6 +22,7 @@ static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         M::up(include_str!("../../migrations/009_product_code_immutable.sql")),
         M::up(include_str!("../../migrations/010_product_soft_delete.sql")),
         M::up(include_str!("../../migrations/011_user_soft_delete.sql")),
+        M::up(include_str!("../../migrations/012_stock.sql")),
     ])
 });
 

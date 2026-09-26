@@ -1,0 +1,143 @@
+<section class="data-card">
+  <div class="toolbar">
+    <p-iconfield>
+      <p-inputicon class="pi pi-search" />
+      <input pInputText type="search" placeholder="Cari nomor atau cakupan" [(ngModel)]="q" (ngModelChange)="searchChanged()" />
+    </p-iconfield>
+    <p-select
+      [options]="statuses"
+      optionLabel="label"
+      optionValue="value"
+      [(ngModel)]="status"
+      (onChange)="load(0)"
+      placeholder="Semua status"
+      [showClear]="true"
+      appendTo="body"
+    />
+    <span class="hint">
+      @if (openingLocked()) {
+        <i class="pi pi-lock"></i>Stok awal sudah dikunci; penyesuaian stok lewat opname berkala.
+      } @else {
+        <i class="pi pi-info-circle"></i>Mulai dengan opname stok awal per rak, lalu kunci stok awal setelah semua disetujui.
+      }
+    </span>
+    @if (canApprove && !openingLocked()) {
+      <p-button label="Kunci stok awal" icon="pi pi-lock" severity="secondary" [outlined]="true" (onClick)="confirmLockOpening()" />
+    }
+    <p-button label="Opname Baru" icon="pi pi-plus" (onClick)="newOpname()" />
+  </div>
+
+  <p-table
+    [value]="rows()"
+    [lazy]="true"
+    (onLazyLoad)="pageChanged($event.first ?? 0, $event.rows ?? pageSize)"
+    [paginator]="true"
+    [first]="first()"
+    [rows]="pageSize"
+    [rowsPerPageOptions]="pageSizes"
+    [totalRecords]="total()"
+    [showCurrentPageReport]="true"
+    [currentPageReportTemplate]="pageReport"
+    [loading]="loading()"
+    [rowHover]="true"
+    styleClass="data-table"
+  >
+    <ng-template #header>
+      <tr>
+        <th style="width: 10.5rem">Nomor</th>
+        <th style="width: 10rem">Jenis</th>
+        <th>Cakupan</th>
+        <th style="width: 11rem">Progres hitung</th>
+        <th style="width: 8.5rem">Status</th>
+        <th style="width: 11rem">Dibuat</th>
+        <th style="width: 11rem">Disetujui</th>
+        <th style="width: 3.5rem"></th>
+      </tr>
+    </ng-template>
+    <ng-template #body let-o>
+      @let st = statusInfo(o.status);
+      <tr class="clickable" (click)="open(o)">
+        <td><span class="cell-code">{{ o.number }}</span></td>
+        <td>
+          <span class="type"><i [class]="types[o.opnameType].icon"></i>{{ types[o.opnameType].label }}</span>
+        </td>
+        <td>{{ o.scopeNote || '–' }}</td>
+        <td>
+          <div class="progress">
+            <div class="bar"><span [style.width.%]="o.itemCount ? (o.countedCount / o.itemCount) * 100 : 0"></span></div>
+            <small>{{ o.countedCount }}/{{ o.itemCount }}</small>
+          </div>
+        </td>
+        <td><p-tag [value]="st.label" [severity]="st.severity" [rounded]="true" /></td>
+        <td>
+          <div class="cell-date">
+            {{ o.createdAt | dateTime }}
+            <small>{{ o.createdBy ?? '–' }}</small>
+          </div>
+        </td>
+        <td>
+          @if (o.approvedAt) {
+            <div class="cell-date">
+              {{ o.approvedAt | dateTime }}
+              <small>{{ o.approvedBy ?? '–' }}</small>
+            </div>
+          } @else {
+            <span class="muted">–</span>
+          }
+        </td>
+        <td><i class="pi pi-chevron-right muted"></i></td>
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr class="empty-row">
+        <td colspan="8">
+          <i class="pi pi-inbox empty-icon"></i>
+          <div>{{ q || status ? 'Tidak ada opname yang cocok.' : 'Belum ada opname. Mulai dengan opname stok awal.' }}</div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>
+
+@if (creating; as c) {
+  <p-dialog
+    [visible]="true"
+    (visibleChange)="creating = null"
+    [modal]="true"
+    [draggable]="false"
+    [style]="{ width: '520px' }"
+    styleClass="master-dialog"
+  >
+    <ng-template #header>
+      <div class="dlg-head">
+        <span class="dlg-icon"><i class="pi pi-check-square"></i></span>
+        <div class="dlg-title">
+          <span class="dlg-name">Opname baru</span>
+          <span class="dlg-meta">Nomor dokumen dibuat otomatis.</span>
+        </div>
+      </div>
+    </ng-template>
+
+    <div class="type-cards">
+      @for (t of typeKeys; track t) {
+        @let disabled = t === 'OPENING' && openingLocked();
+        <button type="button" class="type-card" [class.active]="c.type === t" [disabled]="disabled" (click)="c.type = t">
+          <i [class]="types[t].icon"></i>
+          <strong>{{ types[t].label }}</strong>
+          <small>{{ disabled ? 'Stok awal sudah dikunci.' : types[t].hint }}</small>
+        </button>
+      }
+    </div>
+
+    <div class="field">
+      <label for="scope">Cakupan</label>
+      <input pInputText id="scope" [(ngModel)]="c.scopeNote" placeholder="Misal: Rak Obat Bebas A" (keydown.enter)="create()" />
+      <small>Opsional. Membantu membagi opname per rak atau kategori.</small>
+    </div>
+
+    <ng-template #footer>
+      <p-button label="Batal" severity="secondary" [outlined]="true" (onClick)="creating = null" />
+      <p-button label="Buat" icon="pi pi-check" [loading]="saving()" (onClick)="create()" />
+    </ng-template>
+  </p-dialog>
+}

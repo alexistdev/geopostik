@@ -53,6 +53,50 @@ textarea,
   width: 100%;
 }
 
+// ─── Tab halaman (Master Data, Stok) ─────────────────────────────────────────
+// Tab model map: sisi kanan miring, aktif hijau tua, lainnya abu-abu.
+
+.page-tabs {
+  --tab-slant: 18px;
+  --tab-bg: #d9d9d9;
+  --tab-bg-hover: #cccccc;
+  --tab-active: var(--p-green-800);
+
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--tab-bg);
+
+  a {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem calc(1.25rem + var(--tab-slant)) 0.55rem 1.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--tab-active);
+    background: var(--tab-bg);
+    border-radius: 6px 0 0 0;
+    text-decoration: none;
+    clip-path: polygon(0 0, calc(100% - var(--tab-slant)) 0, 100% 100%, 0 100%);
+    transition: background-color 0.15s;
+
+    i {
+      font-size: 0.85rem;
+    }
+
+    &:hover:not(.active) {
+      background: var(--tab-bg-hover);
+    }
+
+    &.active {
+      color: #fff;
+      background: var(--tab-active);
+    }
+  }
+}
+
 // ─── Tabel data modern (Master Data) ─────────────────────────────────────────
 // Kartu berisi toolbar + p-table (styleClass="data-table") + paginator.
 
@@ -728,6 +772,60 @@ textarea,
 
     svg {
       max-width: 100%;
+    }
+  }
+
+  // Lembar hitung stok opname (features/inventory/count-sheet-print.ts).
+  .sheet-title {
+    font-size: 13pt;
+    font-weight: 700;
+  }
+
+  .sheet-meta {
+    margin: 1mm 0 4mm;
+    font-size: 9pt;
+  }
+
+  .count-sheet {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+
+    th,
+    td {
+      padding: 1.5mm 2mm;
+      border: 1px solid #555;
+      text-align: left;
+    }
+
+    th {
+      background: #eee;
+    }
+
+    tr {
+      break-inside: avoid;
+    }
+
+    td:nth-child(7) {
+      width: 22mm;
+    }
+
+    td:nth-child(8) {
+      width: 30mm;
+    }
+  }
+
+  .sheet-sign {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 10mm;
+    font-size: 9pt;
+
+    div {
+      width: 50mm;
+      padding-bottom: 18mm;
+      border-bottom: 1px solid #000;
+      text-align: center;
     }
   }
 

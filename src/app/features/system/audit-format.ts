@@ -12,6 +12,8 @@ export const ENTITIES: { value: string; label: string }[] = [
   { value: 'racks', label: 'Rak' },
   { value: 'manufacturers', label: 'Pabrik' },
   { value: 'units', label: 'Satuan' },
+  { value: 'stock_opnames', label: 'Stok opname' },
+  { value: 'batches', label: 'Batch' },
   { value: 'users', label: 'Pengguna' },
 ];
 
@@ -24,6 +26,13 @@ export const ACTIONS: { value: string; label: string; severity: TagSeverity }[] 
   { value: 'DEACTIVATE', label: 'Nonaktifkan', severity: 'warn' },
   { value: 'PRICE_CHANGE', label: 'Ubah harga', severity: 'info' },
   { value: 'PRICE_RECALC', label: 'Hitung ulang harga', severity: 'secondary' },
+  { value: 'SUBMIT', label: 'Ajukan', severity: 'info' },
+  { value: 'REOPEN', label: 'Kembali ke draft', severity: 'secondary' },
+  { value: 'APPROVE', label: 'Setujui', severity: 'success' },
+  { value: 'CANCEL', label: 'Batalkan', severity: 'danger' },
+  { value: 'LOCK', label: 'Kunci', severity: 'warn' },
+  { value: 'UNLOCK', label: 'Buka kunci', severity: 'success' },
+  { value: 'OPENING_LOCK', label: 'Kunci stok awal', severity: 'contrast' },
   { value: 'PASSWORD_CHANGE', label: 'Ganti password', severity: 'warn' },
   { value: 'PIN_CHANGE', label: 'Ganti PIN', severity: 'warn' },
   { value: 'LOGIN', label: 'Login', severity: 'secondary' },
@@ -77,6 +86,9 @@ const FIELD_LABELS: Record<string, string> = {
   price: 'Harga',
   username: 'Username',
   alsoPharmacist: 'Juga apoteker',
+  opnameType: 'Jenis opname',
+  batchNumber: 'No. batch',
+  expiryDate: 'Tanggal ED',
   roles: 'Peran',
   licenseType: 'Jenis izin',
   licenseNumber: 'Nomor SIPA/SIPTTK',
@@ -113,6 +125,7 @@ export function formatValue(key: string, value: unknown): string {
   }
   if (typeof value === 'string') {
     if (key === 'drugClass') return drugClassInfo(value as DrugClass)?.label ?? value;
+    if (key === 'opnameType') return value === 'OPENING' ? 'Stok awal' : value === 'PERIODIC' ? 'Opname berkala' : value;
     if (key === 'priceMode') return PRICE_MODES.find((m) => m.value === value)?.label ?? value;
     if (key === 'roles') {
       return value

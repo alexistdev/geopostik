@@ -1,0 +1,137 @@
+// Gaya bersama tab Stok: angka, pil stok, status ED.
+
+.spacer {
+  flex: 1;
+}
+
+.muted {
+  color: var(--p-text-muted-color);
+}
+
+small {
+  color: var(--p-text-muted-color);
+}
+
+.mono {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.85rem;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.name-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+
+  small {
+    font-weight: 400;
+  }
+}
+
+.actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.rack {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 500;
+  white-space: nowrap;
+
+  i {
+    font-size: 0.75rem;
+    color: var(--p-primary-600);
+  }
+}
+
+.stock {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--p-surface-100);
+
+  &.low {
+    color: var(--p-red-700);
+    background: var(--p-red-50);
+
+    small {
+      color: inherit;
+    }
+
+    i {
+      font-size: 0.7rem;
+    }
+  }
+
+  &.empty-stock:not(.low) {
+    color: var(--p-text-muted-color);
+  }
+}
+
+// Status tanggal ED.
+.ed {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+
+  i {
+    font-size: 0.75rem;
+  }
+
+  &.near {
+    font-weight: 600;
+    color: var(--p-orange-700);
+  }
+
+  &.expired {
+    font-weight: 600;
+    color: var(--p-red-700);
+  }
+}
+
+.qty-in {
+  color: var(--p-emerald-700);
+  font-weight: 600;
+}
+
+.qty-out {
+  color: var(--p-red-700);
+  font-weight: 600;
+}
+
+:host-context(.app-dark) {
+  .stock {
+    background: var(--p-surface-800);
+
+    &.low {
+      color: var(--p-red-300);
+      background: color-mix(in srgb, var(--p-red-500) 15%, transparent);
+    }
+  }
+
+  .ed.near {
+    color: var(--p-orange-300);
+  }
+
+  .ed.expired,
+  .qty-out {
+    color: var(--p-red-300);
+  }
+
+  .qty-in {
+    color: var(--p-emerald-300);
+  }
+}

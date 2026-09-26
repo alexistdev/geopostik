@@ -1,0 +1,306 @@
+<section class="data-card">
+  <div class="toolbar">
+    <p-iconfield>
+      <p-inputicon class="pi pi-search" />
+      <input
+        pInputText
+        type="search"
+        placeholder="Cari nama, generik, kode, atau scan barcode"
+        [(ngModel)]="q"
+        (ngModelChange)="searchChanged()"
+        autofocus
+      />
+    </p-iconfield>
+    <p-select
+      [options]="categories()"
+      optionLabel="name"
+      optionValue="id"
+      [(ngModel)]="categoryId"
+      (onChange)="load(0)"
+      placeholder="Semua kategori"
+      [showClear]="true"
+      appendTo="body"
+    />
+    <p-select
+      [options]="racks()"
+      optionLabel="name"
+      optionValue="id"
+      [(ngModel)]="rackId"
+      (onChange)="load(0)"
+      placeholder="Semua rak"
+      [showClear]="true"
+      [filter]="true"
+      appendTo="body"
+    />
+    <span class="spacer"></span>
+    <p-button icon="pi pi-refresh" severity="secondary" [outlined]="true" (onClick)="load()" ariaLabel="Muat ulang" pTooltip="Muat ulang" tooltipPosition="top" />
+  </div>
+
+  <div class="filter-bar">
+    <p-selectbutton
+      [options]="filters"
+      optionLabel="label"
+      optionValue="value"
+      [(ngModel)]="filter"
+      (onChange)="load(0)"
+      [allowEmpty]="false"
+      size="small"
+    >
+      <ng-template #item let-f>
+        <i [class]="f.icon"></i>
+        <span>{{ f.label }}</span>
+      </ng-template>
+    </p-selectbutton>
+    <span class="hint"><i class="pi pi-info-circle"></i>Stok hanya berubah lewat transaksi (stok awal, pembelian, penjualan, opname) dan tercatat di kartu stok.</span>
+  </div>
+
+  <p-table
+    [value]="rows()"
+    dataKey="productId"
+    [expandedRowKeys]="expanded"
+    (onRowExpand)="rowExpanded($event.data)"
+    [lazy]="true"
+    (onLazyLoad)="pageChanged($event.first ?? 0, $event.rows ?? pageSize)"
+    [paginator]="true"
+    [first]="first()"
+    [rows]="pageSize"
+    [rowsPerPageOptions]="pageSizes"
+    [totalRecords]="total()"
+    [showCurrentPageReport]="true"
+    [currentPageReportTemplate]="pageReport"
+    [loading]="loading()"
+    [rowHover]="true"
+    [scrollable]="true"
+    scrollHeight="flex"
+    styleClass="data-table compact"
+  >
+    <ng-template #header>
+      <tr>
+        <th style="width: 3rem"></th>
+        <th style="width: 7.5rem">Kode</th>
+        <th style="min-width: 14rem">Nama</th>
+        <th style="width: 8rem">Rak</th>
+        <th style="width: 8.5rem" class="num">Stok</th>
+        <th style="width: 8.5rem" class="num">Bisa dijual</th>
+        <th style="width: 5.5rem" class="num">Batch</th>
+        <th style="width: 9rem">ED terdekat</th>
+        @if (viewCost) {
+          <th style="width: 9rem" class="num">Nilai</th>
+        }
+        <th style="width: 4rem"></th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-row let-open="expanded">
+      <tr>
+        <td>
+          <p-button
+            type="button"
+            pRowToggler
+            [pRowToggler]="row"
+            [icon]="open ? 'pi pi-chevron-down' : 'pi pi-chevron-right'"
+            [rounded]="true"
+            [text]="true"
+            size="small"
+            severity="secondary"
+            [ariaLabel]="open ? 'Tutup batch' : 'Lihat batch'"
+            [disabled]="!row.batchCount"
+          />
+        </td>
+        <td><span class="cell-code">{{ row.code }}</span></td>
+        <td>
+          <div class="cell-name">
+            <span class="avatar">{{ row.name.charAt(0) }}</span>
+            <div class="name-text">
+              <span>{{ row.name }}</span>
+              @if (row.genericName) {
+                <small>{{ row.genericName }}</small>
+              }
+            </div>
+          </div>
+        </td>
+        <td>
+          @if (row.rackName) {
+            <span class="rack"><i class="pi pi-map-marker"></i>{{ row.rackName }}</span>
+          } @else {
+            <span class="muted">–</span>
+          }
+        </td>
+        <td class="num">
+          <span class="stock" [class.low]="isLow(row)" [class.empty-stock]="row.stockBase <= 0">
+            @if (isLow(row)) {
+              <i class="pi pi-arrow-down"></i>
+            }
+            {{ row.stockBase }} <small>{{ row.baseUnitName }}</small>
+          </span>
+          @if (row.minStockBase > 0) {
+            <small class="block">min {{ row.minStockBase }}</small>
+          }
+        </td>
+        <td class="num">
+          <span [class.muted]="row.sellableBase === row.stockBase">{{ row.sellableBase }}</span>
+          @if (row.expiredBase > 0) {
+            <small class="block danger-text">{{ row.expiredBase }} sudah ED</small>
+          }
+        </td>
+        <td class="num">{{ row.batchCount }}</td>
+        <td>
+          @if (row.nearestExpiry) {
+            @let st = expiry(row.nearestExpiry);
+            <span class="ed" [class]="st">
+              @if (st !== 'ok') {
+                <i [class]="st === 'expired' ? 'pi pi-exclamation-triangle' : 'pi pi-clock'"></i>
+              }
+              {{ formatDate(row.nearestExpiry) }}
+            </span>
+          } @else {
+            <span class="muted">–</span>
+          }
+        </td>
+        @if (viewCost) {
+          <td class="num">{{ row.stockValue | rupiah }}</td>
+        }
+        <td class="actions">
+          <p-button
+            icon="pi pi-book"
+            [rounded]="true"
+            [text]="true"
+            size="small"
+            pTooltip="Kartu stok"
+            tooltipPosition="left"
+            ariaLabel="Kartu stok"
+            (onClick)="openCard(row.productId)"
+          />
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #expandedrow let-row>
+      <tr class="batch-row">
+        <td [attr.colspan]="viewCost ? 10 : 9">
+          @let b = batches()[row.productId];
+          <div class="batch-panel">
+            <div class="batch-head">
+              <strong><i class="pi pi-box"></i>Batch {{ row.name }}</strong>
+              <small class="muted">Urut FEFO: ED terdekat keluar lebih dulu.</small>
+              <span class="spacer"></span>
+              <label class="toggle">
+                <p-toggleswitch [(ngModel)]="includeEmpty" (onChange)="includeEmptyChanged(row.productId)" />
+                Tampilkan batch habis
+              </label>
+            </div>
+            @if (!b) {
+              <div class="muted batch-loading"><i class="pi pi-spin pi-spinner"></i> Memuat batch…</div>
+            } @else {
+              <table class="batch-table">
+                <thead>
+                  <tr>
+                    <th>No. batch</th>
+                    <th>ED</th>
+                    <th class="num">Stok</th>
+                    @if (viewCost) {
+                      <th class="num">HPP / {{ b.baseUnitName }}</th>
+                    }
+                    <th>Asal</th>
+                    <th>Masuk</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (batch of b.batches; track batch.id) {
+                    @let st = expiry(batch.expiryDate);
+                    <tr [class.dim]="batch.qtyOnHandBase === 0">
+                      <td class="mono">{{ batch.batchNumber }}</td>
+                      <td>
+                        <span class="ed" [class]="st">{{ formatDate(batch.expiryDate) }}</span>
+                      </td>
+                      <td class="num strong">{{ batch.qtyOnHandBase }} <small>{{ b.baseUnitName }}</small></td>
+                      @if (viewCost) {
+                        <td class="num">{{ batch.unitCostX100 | costX100 }}</td>
+                      }
+                      <td>{{ sourceLabels[batch.sourceType] }}</td>
+                      <td>{{ formatDate(batch.createdAt) }}</td>
+                      <td>
+                        @if (batch.isLocked) {
+                          <p-tag value="Terkunci" severity="danger" icon="pi pi-lock" [rounded]="true" [pTooltip]="batch.lockReason ?? ''" tooltipPosition="top" />
+                        } @else if (st === 'expired') {
+                          <p-tag value="Sudah ED" severity="danger" [rounded]="true" />
+                        } @else if (st === 'near') {
+                          <p-tag value="Hampir ED" severity="warn" [rounded]="true" />
+                        } @else if (batch.qtyOnHandBase === 0) {
+                          <p-tag value="Habis" severity="secondary" [rounded]="true" />
+                        } @else {
+                          <p-tag value="Bisa dijual" severity="success" [rounded]="true" />
+                        }
+                      </td>
+                      <td class="batch-actions">
+                        <p-button icon="pi pi-book" [text]="true" [rounded]="true" size="small" pTooltip="Kartu stok batch" tooltipPosition="left" ariaLabel="Kartu stok batch" (onClick)="openCard(row.productId, batch.id)" />
+                        @if (canLock) {
+                          <p-button
+                            [icon]="batch.isLocked ? 'pi pi-lock-open' : 'pi pi-lock'"
+                            [text]="true"
+                            [rounded]="true"
+                            size="small"
+                            [severity]="batch.isLocked ? 'success' : 'danger'"
+                            [pTooltip]="batch.isLocked ? 'Buka kunci' : 'Kunci batch'"
+                            tooltipPosition="left"
+                            [ariaLabel]="batch.isLocked ? 'Buka kunci' : 'Kunci batch'"
+                            (onClick)="askLock(row, batch)"
+                          />
+                        }
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="8" class="muted center">Tidak ada batch.</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr class="empty-row">
+        <td [attr.colspan]="viewCost ? 10 : 9">
+          <i class="pi pi-inbox empty-icon"></i>
+          <div>Tidak ada obat yang cocok.</div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>
+
+@if (locking; as l) {
+  <p-dialog
+    [visible]="true"
+    (visibleChange)="locking = null"
+    [modal]="true"
+    [draggable]="false"
+    [style]="{ width: '440px' }"
+    styleClass="master-dialog"
+  >
+    <ng-template #header>
+      <div class="dlg-head">
+        <span class="dlg-icon"><i class="pi pi-lock"></i></span>
+        <div class="dlg-title">
+          <span class="dlg-name">Kunci batch {{ l.batch.batchNumber }}</span>
+          <span class="dlg-meta">{{ l.productName }} · ED {{ formatDate(l.batch.expiryDate) }}</span>
+        </div>
+      </div>
+    </ng-template>
+    <p class="muted">Batch terkunci tidak ikut FEFO sehingga tidak bisa dijual, misal karena recall, rusak, atau menunggu pemusnahan.</p>
+    <div class="field">
+      <label for="lockReason">Alasan <span class="req">*</span></label>
+      <input pInputText id="lockReason" [(ngModel)]="l.reason" placeholder="Misal: Recall BPOM" autofocus (keydown.enter)="confirmLock()" />
+    </div>
+    <ng-template #footer>
+      <p-button label="Batal" severity="secondary" [outlined]="true" (onClick)="locking = null" />
+      <p-button label="Kunci" icon="pi pi-lock" severity="danger" [disabled]="!l.reason.trim()" [loading]="lockSaving()" (onClick)="confirmLock()" />
+    </ng-template>
+  </p-dialog>
+}

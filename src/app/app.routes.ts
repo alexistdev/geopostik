@@ -3,7 +3,7 @@ import { Routes } from '@angular/router';
 import { activationGuard, authGuard, guestGuard, permissionGuard, setupGuard } from './core/auth/guards';
 import { NAV_ITEMS } from './layout/nav';
 
-const BUILT = ['dashboard', 'obat', 'master-data', 'pengguna', 'pengaturan', 'sistem/log'];
+const BUILT = ['dashboard', 'obat', 'master-data', 'stok', 'pengguna', 'pengaturan', 'sistem/log'];
 
 // Menu yang belum punya halaman sendiri memakai Placeholder.
 const pendingRoutes: Routes = NAV_ITEMS.filter((item) => !BUILT.includes(item.path)).map((item) => ({
@@ -71,6 +71,30 @@ export const routes: Routes = [
         path: 'pengguna',
         canActivate: [permissionGuard('USER_MANAGE')],
         loadComponent: () => import('./features/users/user-list').then((m) => m.UserList),
+      },
+      {
+        path: 'stok',
+        canActivate: [permissionGuard('STOCK_COUNT_INPUT')],
+        loadComponent: () => import('./features/inventory/stock-page').then((m) => m.StockPage),
+        children: [
+          { path: '', pathMatch: 'full', redirectTo: 'daftar' },
+          {
+            path: 'daftar',
+            loadComponent: () => import('./features/inventory/stock-list').then((m) => m.StockList),
+          },
+          {
+            path: 'kartu',
+            loadComponent: () => import('./features/inventory/stock-card').then((m) => m.StockCard),
+          },
+          {
+            path: 'opname',
+            loadComponent: () => import('./features/inventory/opname-list').then((m) => m.OpnameList),
+          },
+          {
+            path: 'opname/:id',
+            loadComponent: () => import('./features/inventory/opname-detail').then((m) => m.OpnameDetail),
+          },
+        ],
       },
       {
         path: 'pengaturan',

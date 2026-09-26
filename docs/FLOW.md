@@ -126,6 +126,12 @@ Cetak lembar hitung per rak ─► Hitung fisik per obat per batch (no batch + E
 ```
 Setelah dikunci, stok hanya bisa berubah lewat transaksi biasa.
 
+Di aplikasi (menu **Stok › Stok Opname**): opname jenis *Stok awal* hanya berisi batch baru
+(no batch, ED, HPP per satuan dasar, jumlah fisik dalam satuan dasar) dan boleh dibuat beberapa
+kali (misal per rak). Alurnya Draft ─► Diajukan (semua baris wajib sudah dihitung) ─► Disetujui
+Pemilik/Apoteker, atau dikembalikan ke draft / dibatalkan. Setelah semua stok awal disetujui,
+Pemilik/Apoteker menekan **Kunci stok awal**; sejak itu opname stok awal baru ditolak.
+
 ### B. Login dan shift kasir
 ```
 Login ─► Kasir? ──ya──► Buka shift (input uang modal awal) ─► Menu kasir
@@ -211,6 +217,18 @@ Input resep: nomor, tanggal, dokter, pasien (nama, umur, alamat)
 ```
 Mulai opname (per rak/kategori) ─► cetak lembar hitung ─► input stok fisik per batch
    ─► Sistem hitung selisih ─► Pemilik/Apoteker setujui ─► penyesuaian stok + kartu stok
+
+Opname berkala di menu Stok › Stok Opname: "Isi dari batch" memuat semua batch ber-stok per rak /
+kategori / obat beserta snapshot stok sistem; batch yang tidak terdaftar bisa ditambahkan sebagai
+batch baru. Saat disetujui, selisih (fisik − snapshot) menjadi movement `ADJUSTMENT`. Bila stok
+batch sudah berkurang sejak snapshot sehingga penyesuaian membuat stok minus, persetujuan ditolak
+dan opname perlu dikembalikan ke draft untuk dihitung ulang.
+
+Menu Stok › Stok menampilkan stok per obat (total, bisa dijual, sudah ED, ED terdekat, nilai
+persediaan untuk yang berhak melihat HPP) dengan rincian per batch urut FEFO. Batch bisa **dikunci**
+(wajib alasan, misal recall) oleh Pemilik/Apoteker sehingga tidak ikut FEFO. Stok › Kartu Stok
+menampilkan riwayat per obat atau per batch dengan saldo berjalan, saldo awal/akhir per rentang
+tanggal.
 
 Dashboard harian: obat ED ≤ 3 bulan, stok di bawah minimal
    ─► Expired ─► batch terkunci otomatis (tidak bisa dijual)

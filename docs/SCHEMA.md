@@ -225,6 +225,7 @@ berbeda. Di layar tetap bisa ditampilkan dikelompokkan per nomor batch.
 | unit_cost_x100 | INTEGER | HPP per satuan terkecil |
 | qty_on_hand_base | INTEGER | **ringkasan**, hanya diubah oleh trigger kartu stok. `CHECK (qty_on_hand_base >= 0)` |
 | is_locked | INTEGER | kunci manual (recall, rusak, menunggu pemusnahan) |
+| lock_reason | TEXT NULL | alasan kunci, wajib saat mengunci (migration `012_stock.sql`) |
 | source_type, source_id | TEXT, INTEGER | `OPENING` / `PURCHASE` / `ADJUSTMENT` (batch baru saat opname) + id baris asal |
 
 Batch expired **tidak** perlu di-update statusnya; kondisi "bisa dijual" dihitung:
@@ -283,6 +284,18 @@ status (`DRAFT`/`SUBMITTED`/`APPROVED`/`CANCELLED`), created_by, approved_by, ap
 
 Saat `APPROVED`: batch baru dibuat, lalu satu `stock_movements` per selisih
 (`OPENING` atau `ADJUSTMENT`).
+
+Aturan (migration `012_stock.sql`, modul `src-tauri/src/inventory/`):
+- Nomor `OP-YYMM-0001` dari `doc_sequences` (prefix `OP`, period bulanan).
+- Satu batch hanya sekali per opname (index unik parsial `(opname_id, batch_id)`).
+- Baris hanya bisa ditambah/diubah/dihapus selama opname `DRAFT` (trigger); pengecualian satu-satunya
+  adalah pengisian `batch_id` batch baru saat approve. Opname tidak bisa dihapus (batal = `CANCELLED`).
+- `OPENING` hanya berisi batch baru; `batch_id` baris diisi batch yang dibuat saat approve.
+  Batch baru dengan fisik 0 tidak dibuat.
+- Selisih = `physical_qty_base − system_qty_base` (snapshot saat baris ditambahkan).
+- Pengaturan `stock.opening_locked` = `true` setelah **Kunci stok awal**: opname `OPENING` baru ditolak.
+- HPP (`unit_cost_x100`) dan nilai selisih tidak dikirim ke user tanpa `VIEW_COST`; user tersebut tetap
+  bisa mengisi HPP batch baru (kosong saat mengubah = pertahankan nilai lama).
 
 ### `destructions` + `destruction_items` (Tahap 2)
 Header: number, destruction_date, witnesses, note, status (`DRAFT`/`APPROVED`/`CANCELLED`), created_by, approved_by.

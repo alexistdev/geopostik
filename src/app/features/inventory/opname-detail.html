@@ -1,0 +1,381 @@
+@if (detail(); as d) {
+  @let h = d.header;
+  @let st = statusInfo(h.status);
+  <div class="head-card">
+    <a routerLink="/stok/opname" class="back"><i class="pi pi-arrow-left"></i>Daftar opname</a>
+    <div class="head-main">
+      <span class="head-icon"><i [class]="types[h.opnameType].icon"></i></span>
+      <div class="head-title">
+        <div class="title-row">
+          <h2>{{ h.number }}</h2>
+          <p-tag [value]="st.label" [severity]="st.severity" [rounded]="true" />
+          <span class="type">{{ types[h.opnameType].label }}</span>
+        </div>
+        <div class="meta">
+          @if (h.scopeNote) {
+            <span><i class="pi pi-map-marker"></i>{{ h.scopeNote }}</span>
+          }
+          <span><i class="pi pi-user"></i>Dibuat {{ h.createdBy ?? '–' }} · {{ h.createdAt | dateTime }}</span>
+          @if (h.approvedAt) {
+            <span><i class="pi pi-check-circle"></i>Disetujui {{ h.approvedBy ?? '–' }} · {{ h.approvedAt | dateTime }}</span>
+          }
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <small>Dihitung</small>
+          <strong>{{ h.countedCount }}/{{ h.itemCount }}</strong>
+        </div>
+        @if (d.differenceValue != null && h.opnameType === 'PERIODIC') {
+          <div class="stat" [class.neg]="d.differenceValue < 0" [class.pos]="d.differenceValue > 0">
+            <small>Nilai selisih</small>
+            <strong>{{ d.differenceValue | rupiah }}</strong>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="head-actions">
+      @switch (h.status) {
+        @case ('DRAFT') {
+          @if (isPeriodic()) {
+            <p-button label="Isi dari batch" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="openFill()" />
+          }
+          <p-button [label]="isPeriodic() ? 'Batch ditemukan' : 'Tambah batch'" icon="pi pi-plus" severity="secondary" [outlined]="true" (onClick)="newBatch()" />
+          <p-button label="Cetak lembar hitung" icon="pi pi-print" severity="secondary" [text]="true" [disabled]="!h.itemCount" (onClick)="printSheet()" />
+          <span class="spacer"></span>
+          <p-button label="Batalkan" icon="pi pi-times" severity="danger" [text]="true" (onClick)="cancelling = { reason: '' }" />
+          <p-button label="Ajukan" icon="pi pi-send" [disabled]="!h.itemCount || h.countedCount < h.itemCount" [loading]="busy()" (onClick)="submit()" [pTooltip]="h.countedCount < h.itemCount ? 'Isi stok fisik semua baris terlebih dahulu' : ''" tooltipPosition="top" />
+        }
+        @case ('SUBMITTED') {
+          <span class="waiting"><i class="pi pi-hourglass"></i>Menunggu persetujuan Pemilik / Apoteker.</span>
+          <span class="spacer"></span>
+          <p-button label="Batalkan" icon="pi pi-times" severity="danger" [text]="true" (onClick)="cancelling = { reason: '' }" />
+          <p-button label="Kembalikan ke draft" icon="pi pi-undo" severity="secondary" [outlined]="true" [loading]="busy()" (onClick)="reopen()" />
+          @if (canApprove) {
+            <p-button label="Setujui" icon="pi pi-check" severity="success" [loading]="busy()" (onClick)="confirmApprove()" />
+          }
+        }
+        @case ('APPROVED') {
+          <span class="waiting done"><i class="pi pi-check-circle"></i>Stok sudah diperbarui dan tercatat di kartu stok.</span>
+        }
+        @case ('CANCELLED') {
+          <span class="waiting"><i class="pi pi-ban"></i>Opname dibatalkan; stok tidak berubah.</span>
+        }
+      }
+    </div>
+  </div>
+
+  <section class="data-card">
+    <div class="toolbar">
+      <p-iconfield>
+        <p-inputicon class="pi pi-search" />
+        <input pInputText type="search" placeholder="Cari obat atau no. batch" [ngModel]="filterText()" (ngModelChange)="filterText.set($event)" />
+      </p-iconfield>
+      <label class="toggle">
+        <p-toggleswitch [ngModel]="uncountedOnly()" (ngModelChange)="uncountedOnly.set($event)" />
+        Hanya yang belum dihitung
+      </label>
+      <span class="hint">
+        @if (isDraft()) {
+          <i class="pi pi-info-circle"></i>Ketik hasil hitung fisik (satuan dasar) lalu Enter/Tab; tersimpan otomatis.
+        }
+      </span>
+    </div>
+
+    <p-table [value]="items()" dataKey="id" [rowHover]="true" [scrollable]="true" scrollHeight="flex" styleClass="data-table compact">
+      <ng-template #header>
+        <tr>
+          <th style="min-width: 14rem">Obat</th>
+          <th style="width: 9rem">No. batch</th>
+          <th style="width: 7.5rem">ED</th>
+          @if (viewCost) {
+            <th style="width: 8rem" class="num">HPP</th>
+          }
+          @if (isPeriodic()) {
+            <th style="width: 7rem" class="num">Sistem</th>
+          }
+          <th style="width: 10rem" class="num">Fisik</th>
+          @if (isPeriodic()) {
+            <th style="width: 6.5rem" class="num">Selisih</th>
+          }
+          <th style="min-width: 10rem">Catatan</th>
+          @if (isDraft()) {
+            <th style="width: 6rem"></th>
+          }
+        </tr>
+      </ng-template>
+      <ng-template #body let-i>
+        @let df = diff(i);
+        <tr [class.uncounted]="i.physicalQtyBase == null">
+          <td>
+            <div class="name-text">
+              <span class="strong">{{ i.productName }}</span>
+              <small>
+                <span class="mono">{{ i.productCode }}</span>
+                @if (i.batchId == null && h.opnameType === 'PERIODIC') {
+                  · <span class="new-batch">batch baru</span>
+                }
+              </small>
+            </div>
+          </td>
+          <td class="mono">{{ i.batchNumber }}</td>
+          <td>
+            @let es = expiry(i.expiryDate);
+            <span class="ed" [class]="es">
+              @if (es === 'expired') {
+                <i class="pi pi-exclamation-triangle"></i>
+              }
+              {{ formatDate(i.expiryDate) }}
+            </span>
+          </td>
+          @if (viewCost) {
+            <td class="num">{{ i.unitCostX100 | costX100 }}</td>
+          }
+          @if (isPeriodic()) {
+            <td class="num">{{ i.systemQtyBase }}</td>
+          }
+          <td class="num">
+            @if (isDraft()) {
+              <div class="qty-cell">
+                @if (isPeriodic() && i.physicalQtyBase == null) {
+                  <p-button icon="pi pi-equals" [text]="true" [rounded]="true" size="small" pTooltip="Sama dengan sistem" tooltipPosition="left" ariaLabel="Sama dengan sistem" (onClick)="fillSameAsSystem(i)" />
+                }
+                <p-inputnumber
+                  #qty
+                  [ngModel]="i.physicalQtyBase"
+                  [min]="0"
+                  [useGrouping]="false"
+                  placeholder="–"
+                  inputStyleClass="qty-input"
+                  (onBlur)="savePhysical(i, qty.value ?? null)"
+                  (keydown.enter)="$any($event.target).blur()"
+                />
+                <small>{{ i.baseUnitName }}</small>
+              </div>
+            } @else {
+              <strong>{{ i.physicalQtyBase ?? '–' }}</strong> <small>{{ i.baseUnitName }}</small>
+            }
+          </td>
+          @if (isPeriodic()) {
+            <td class="num">
+              @if (df == null) {
+                <span class="muted">–</span>
+              } @else if (df > 0) {
+                <span class="qty-in">+{{ df }}</span>
+              } @else if (df < 0) {
+                <span class="qty-out">−{{ -df }}</span>
+              } @else {
+                <span class="muted">0</span>
+              }
+            </td>
+          }
+          <td>
+            @if (isDraft()) {
+              <input pInputText class="note-input" [ngModel]="i.note ?? ''" #note placeholder="–" (change)="saveNote(i, note.value)" />
+            } @else {
+              <span class="muted">{{ i.note ?? '' }}</span>
+            }
+          </td>
+          @if (isDraft()) {
+            <td class="actions">
+              @if (i.batchId == null) {
+                <p-button icon="pi pi-pencil" [text]="true" [rounded]="true" size="small" pTooltip="Ubah batch" tooltipPosition="left" ariaLabel="Ubah batch" (onClick)="editBatch(i)" />
+              }
+              <p-button icon="pi pi-trash" [text]="true" [rounded]="true" size="small" severity="danger" pTooltip="Hapus baris" tooltipPosition="left" ariaLabel="Hapus baris" (onClick)="confirmDeleteItem(i)" />
+            </td>
+          }
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr class="empty-row">
+          <td colspan="9">
+            <i class="pi pi-inbox empty-icon"></i>
+            @if (d.items.length) {
+              <div>Tidak ada baris yang cocok.</div>
+            } @else if (isDraft()) {
+              <div>
+                {{ isPeriodic() ? 'Klik "Isi dari batch" untuk memuat batch per rak / kategori / obat.' : 'Klik "Tambah batch" untuk mengisi stok awal per batch.' }}
+              </div>
+            } @else {
+              <div>Opname tidak berisi baris.</div>
+            }
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </section>
+
+  @if (form; as f) {
+    <p-dialog
+      [visible]="true"
+      (visibleChange)="form = null"
+      [modal]="true"
+      [draggable]="false"
+      [style]="{ width: '560px' }"
+      styleClass="master-dialog"
+    >
+      <ng-template #header>
+        <div class="dlg-head">
+          <span class="dlg-icon"><i class="pi pi-box"></i></span>
+          <div class="dlg-title">
+            <span class="dlg-name">{{ f.id ? 'Ubah batch' : isPeriodic() ? 'Batch ditemukan' : 'Tambah batch stok awal' }}</span>
+            <span class="dlg-meta">{{ h.number }} · jumlah dalam satuan dasar</span>
+          </div>
+        </div>
+      </ng-template>
+
+      <section class="card">
+        <div class="field">
+          <label for="bProduct">Obat <span class="req">*</span></label>
+          <p-autocomplete
+            inputId="bProduct"
+            [(ngModel)]="f.product"
+            [suggestions]="suggestions()"
+            (completeMethod)="searchProduct($event.query)"
+            optionLabel="name"
+            [forceSelection]="true"
+            [dropdown]="true"
+            placeholder="Cari nama, kode, atau scan barcode"
+            appendTo="body"
+            styleClass="w-full"
+            [disabled]="!!f.id"
+            [autofocus]="!f.product"
+          >
+            <ng-template #item let-p>
+              <span class="mono">{{ p.code }}</span>&nbsp;{{ p.name }}
+            </ng-template>
+          </p-autocomplete>
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label for="bNumber">No. batch <span class="req">*</span></label>
+            <input pInputText id="bNumber" [(ngModel)]="f.batchNumber" placeholder="Misal: A2401" [autofocus]="!!f.product" />
+          </div>
+          <div class="field">
+            <label for="bEd">Tanggal ED <span class="req">*</span></label>
+            <input pInputText id="bEd" type="date" [(ngModel)]="f.expiryDate" />
+            @if (f.expiryDate && expiry(f.expiryDate) === 'expired') {
+              <small class="warn-text"><i class="pi pi-exclamation-triangle"></i> Sudah lewat ED, batch tidak bisa dijual.</small>
+            }
+          </div>
+          <div class="field">
+            <label for="bQty">Jumlah fisik ({{ f.product?.baseUnitName || 'satuan dasar' }})</label>
+            <p-inputnumber inputId="bQty" [(ngModel)]="f.qty" [min]="0" [useGrouping]="false" placeholder="Belum dihitung" />
+          </div>
+          <div class="field">
+            <label for="bCost">HPP / {{ f.product?.baseUnitName || 'satuan dasar' }} <span class="req">*</span></label>
+            <p-inputnumber
+              inputId="bCost"
+              [(ngModel)]="f.cost"
+              mode="decimal"
+              [minFractionDigits]="0"
+              [maxFractionDigits]="2"
+              prefix="Rp"
+              locale="id-ID"
+              [min]="0"
+              [placeholder]="f.hasHiddenCost ? 'Sudah diisi (tersembunyi)' : 'Harga beli per satuan dasar'"
+            />
+            @if (f.hasHiddenCost) {
+              <small>Kosongkan untuk mempertahankan HPP yang sudah diisi.</small>
+            }
+          </div>
+        </div>
+        <div class="field">
+          <label for="bNote">Catatan</label>
+          <input pInputText id="bNote" [(ngModel)]="f.note" placeholder="Opsional" (keydown.enter)="saveBatch(true)" />
+        </div>
+      </section>
+
+      <ng-template #footer>
+        <p-button label="Batal" severity="secondary" [outlined]="true" (onClick)="form = null" />
+        @if (!f.id) {
+          <p-button label="Simpan & tambah lagi" icon="pi pi-plus" severity="secondary" [loading]="saving()" (onClick)="saveBatch(true)" />
+        }
+        <p-button label="Simpan" icon="pi pi-check" [loading]="saving()" (onClick)="saveBatch(false)" />
+      </ng-template>
+    </p-dialog>
+  }
+
+  @if (filling; as fl) {
+    <p-dialog
+      [visible]="true"
+      (visibleChange)="filling = null"
+      [modal]="true"
+      [draggable]="false"
+      [style]="{ width: '480px' }"
+      styleClass="master-dialog"
+    >
+      <ng-template #header>
+        <div class="dlg-head">
+          <span class="dlg-icon"><i class="pi pi-download"></i></span>
+          <div class="dlg-title">
+            <span class="dlg-name">Isi dari batch</span>
+            <span class="dlg-meta">Semua batch ber-stok dalam cakupan ditambahkan dengan stok sistem saat ini.</span>
+          </div>
+        </div>
+      </ng-template>
+      <section class="card">
+        <div class="field">
+          <label for="fRack">Rak</label>
+          <p-select inputId="fRack" [options]="racks()" optionLabel="name" optionValue="id" [(ngModel)]="fl.rackId" placeholder="Semua rak" [showClear]="true" [filter]="true" appendTo="body" styleClass="w-full" />
+        </div>
+        <div class="field">
+          <label for="fCat">Kategori</label>
+          <p-select inputId="fCat" [options]="categories()" optionLabel="name" optionValue="id" [(ngModel)]="fl.categoryId" placeholder="Semua kategori" [showClear]="true" appendTo="body" styleClass="w-full" />
+        </div>
+        <div class="field">
+          <label for="fProduct">Obat</label>
+          <p-autocomplete
+            inputId="fProduct"
+            [(ngModel)]="fl.product"
+            [suggestions]="suggestions()"
+            (completeMethod)="searchProduct($event.query)"
+            optionLabel="name"
+            [forceSelection]="true"
+            [showClear]="true"
+            placeholder="Semua obat"
+            appendTo="body"
+            styleClass="w-full"
+          />
+          <small>Kosongkan semua untuk memuat seluruh batch ber-stok.</small>
+        </div>
+      </section>
+      <ng-template #footer>
+        <p-button label="Batal" severity="secondary" [outlined]="true" (onClick)="filling = null" />
+        <p-button label="Tambahkan" icon="pi pi-download" [loading]="busy()" (onClick)="fill()" />
+      </ng-template>
+    </p-dialog>
+  }
+
+  @if (cancelling; as c) {
+    <p-dialog
+      [visible]="true"
+      (visibleChange)="cancelling = null"
+      [modal]="true"
+      [draggable]="false"
+      [style]="{ width: '440px' }"
+      styleClass="master-dialog"
+    >
+      <ng-template #header>
+        <div class="dlg-head">
+          <span class="dlg-icon"><i class="pi pi-ban"></i></span>
+          <div class="dlg-title">
+            <span class="dlg-name">Batalkan {{ h.number }}?</span>
+            <span class="dlg-meta">Opname tidak dihapus, hanya ditandai batal. Stok tidak berubah.</span>
+          </div>
+        </div>
+      </ng-template>
+      <div class="field">
+        <label for="cReason">Alasan</label>
+        <input pInputText id="cReason" [(ngModel)]="c.reason" placeholder="Opsional" autofocus (keydown.enter)="cancel()" />
+      </div>
+      <ng-template #footer>
+        <p-button label="Kembali" severity="secondary" [outlined]="true" (onClick)="cancelling = null" />
+        <p-button label="Batalkan opname" icon="pi pi-ban" severity="danger" [loading]="busy()" (onClick)="cancel()" />
+      </ng-template>
+    </p-dialog>
+  }
+} @else {
+  <div class="loading"><i class="pi pi-spin pi-spinner"></i> Memuat opname…</div>
+}
