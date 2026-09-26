@@ -45,7 +45,7 @@ jobs:
       - name: Build installer
         run: npm run tauri build
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: GeoPOSTik-windows
           path: |
