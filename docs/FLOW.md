@@ -280,10 +280,29 @@ hanya ditandai batal, dan stok dikembalikan ke batch asal lewat kartu stok.
 Backup otomatis (`VACUUM INTO`) setiap tutup shift dan tutup aplikasi, menyimpan beberapa
 salinan terakhir, dan ada tombol backup manual ke flashdisk. Restore hanya bisa dilakukan Pemilik.
 
+### L. Dashboard (per peran)
+Halaman pertama setelah login. Isinya **dipilih di Rust per hak akses** (command `dashboard_get`,
+modul `src-tauri/src/dashboard/`): panel yang tidak berhak dikirim `null`, jadi omzet, HPP, laba,
+dan hutang tidak pernah sampai ke frontend user yang tidak berhak. Karena hak adalah gabungan
+peran, user multi-peran melihat gabungan panelnya; urutan panel mengikuti peran utama.
+
+| Panel | Hak | Isi |
+|---|---|---|
+| Shift kasir | `SHIFT_MANAGE` | shift terbuka (dibuka siapa, sejak kapan), penjualan sendiri hari ini. Modal, penjualan shift, dan tunai seharusnya di laci hanya untuk pemilik shift atau `REPORT_SALES` |
+| Penjualan | `REPORT_SALES` | omzet hari ini (vs kemarin), bulan ini, grafik 7 hari, metode bayar hari ini, nota batal, penjualan resep, 5 obat terlaris bulan ini. Laba kotor (penjualan tanpa PPN − HPP batch) hanya dengan `VIEW_COST` |
+| Resep | `PRESCRIPTION_INPUT` / `PRESCRIPTION_VALIDATE` → antrian `DRAFT` (menunggu skrining); selain itu `SALE_CREATE` → antrian `SCREENED` (siap dibayar di kasir) | jumlah & daftar resep, paling lama menunggu dulu |
+| Peringatan stok | `STOCK_COUNT_INPUT` | jumlah obat di bawah minimal / habis, batch hampir ED (≤ 90 hari) / sudah ED, daftar ED terdekat & stok paling kritis. Nilai persediaan hanya dengan `VIEW_COST` |
+| Stok opname | `STOCK_COUNT_INPUT` | opname draft & diajukan, pengingat kunci stok awal; "menunggu persetujuan Anda" bila `STOCK_COUNT_APPROVE` |
+| Hutang supplier | `SUPPLIER_DEBT_MANAGE` | sisa hutang faktur kredit `POSTED` (total − pembayaran − retur potong hutang), lewat jatuh tempo, jatuh tempo ≤ 7 hari |
+
+Hasilnya per peran bawaan: **Kasir** = shift + resep siap bayar; **TTK** = resep menunggu skrining,
+stok, opname, shift (tanpa HPP); **Apoteker** = + penjualan, persetujuan opname, laba & nilai
+persediaan (bila diizinkan pemilik); **Pemilik** = penjualan & laba, hutang, stok, opname, resep, shift.
+
 ## 4. Daftar layar
 
 1. Login
-2. Dashboard (peringatan ED, stok menipis, omzet hari ini)
+2. Dashboard per peran (lihat L): shift, omzet & laba, antrian resep, peringatan ED & stok menipis, opname, hutang
 3. Kasir/POS
 4. Penjualan resep
 5. Obat (daftar & form obat, harga, tier grosir)

@@ -1,0 +1,388 @@
+<header class="hero">
+  <div>
+    <h1>{{ greeting() }}, {{ auth.user()?.fullName }}</h1>
+    <p><i class="pi pi-calendar"></i>{{ todayLabel() }} <span class="dot">·</span> {{ auth.roleLabel() }}</p>
+  </div>
+  <p-button
+    icon="pi pi-refresh"
+    label="Muat ulang"
+    severity="secondary"
+    [outlined]="true"
+    [loading]="loading()"
+    (onClick)="load()"
+  />
+</header>
+
+@let d = data();
+
+@if (!d) {
+  <div class="tiles">
+    @for (i of [1, 2, 3, 4]; track i) {
+      <p-skeleton height="6.5rem" borderRadius="14px" />
+    }
+  </div>
+} @else {
+  <div class="tiles">
+    @for (t of tiles(); track t.label) {
+      <a class="tile" [class]="'tone-' + t.tone" [class.clickable]="!!t.link" [routerLink]="t.link ?? null">
+        <span class="tile-icon"><i [class]="t.icon"></i></span>
+        <span class="tile-body">
+          <span class="tile-label">{{ t.label }}</span>
+          <span class="tile-value">{{ t.value }}</span>
+          @if (t.sub) {
+            <span class="tile-sub">{{ t.sub }}</span>
+          }
+        </span>
+      </a>
+    }
+  </div>
+
+  <div class="grid">
+    @for (s of sections(); track s) {
+      @switch (s) {
+        @case ('shift') {
+          @if (d.shift; as sh) {
+            <section class="card">
+              <header class="card-head">
+                <h2><i class="pi pi-clock"></i>Shift Kasir</h2>
+                @if (can('SALE_CREATE')) {
+                  <a routerLink="/kasir" class="head-link">Buka Kasir <kbd>F2</kbd></a>
+                }
+              </header>
+              @if (sh.open; as o) {
+                <div class="shift-status" [class.mine]="o.isMine">
+                  <span class="status-pill good"><i class="pi pi-circle-fill"></i>Terbuka</span>
+                  <span>
+                    {{ o.isMine ? 'Shift Anda' : 'Dibuka oleh ' + o.openedBy }} sejak
+                    <strong>{{ o.openedAt | dateTime }}</strong>
+                  </span>
+                </div>
+                @if (o.sales; as sales) {
+                  <dl class="facts">
+                    <div><dt>Modal awal</dt><dd>{{ o.openingCash | rupiah }}</dd></div>
+                    <div><dt>Penjualan shift</dt><dd>{{ sales.amount | rupiah }}<small class="block">{{ sales.count }} nota</small></dd></div>
+                    <div><dt>Tunai seharusnya di laci</dt><dd class="strong">{{ o.expectedCash | rupiah }}</dd></div>
+                  </dl>
+                } @else {
+                  <p class="muted note">Rincian shift hanya terlihat oleh kasir yang membukanya.</p>
+                }
+              } @else {
+                <div class="empty">
+                  <i class="pi pi-lock-open"></i>
+                  <div>
+                    <strong>Belum ada shift terbuka</strong>
+                    <span>Buka shift di menu Kasir dengan mengisi uang modal awal sebelum berjualan.</span>
+                  </div>
+                </div>
+              }
+              <p class="foot">
+                Penjualan Anda hari ini: <strong>{{ sh.mySalesToday.amount | rupiah }}</strong>
+                ({{ sh.mySalesToday.count }} nota)
+              </p>
+            </section>
+          }
+        }
+
+        @case ('sales') {
+          @if (d.sales; as sa) {
+            <section class="card wide">
+              <header class="card-head">
+                <h2><i class="pi pi-chart-bar"></i>Penjualan</h2>
+                <span class="head-meta">
+                  Resep hari ini {{ sa.prescriptionToday.amount | rupiah }}
+                  @if (sa.voidToday.count > 0) {
+                    <span class="status-pill danger"><i class="pi pi-ban"></i>{{ sa.voidToday.count }} nota batal</span>
+                  }
+                </span>
+              </header>
+              <div class="sales-body">
+                <div class="chart" role="img" aria-label="Omzet 7 hari terakhir">
+                  <div class="chart-title">Omzet 7 hari terakhir</div>
+                  <div class="bars">
+                    @for (w of week(); track w.date; let i = $index) {
+                      <div
+                        class="bar-col"
+                        (mouseenter)="hoverDay.set(i)"
+                        (mouseleave)="hoverDay.set(null)"
+                      >
+                        @if (hoverDay() === i) {
+                          <div class="bar-tip">
+                            <strong>{{ w.amount | rupiah }}</strong>
+                            <span>{{ w.count }} nota · {{ shortDate(w.date) }}</span>
+                          </div>
+                        }
+                        <div class="bar-track">
+                          <div class="bar" [class.today]="w.isToday" [style.height.%]="w.pct">
+                            @if (w.isToday || hoverDay() === i) {
+                              <span class="bar-label">{{ w.short }}</span>
+                            }
+                          </div>
+                        </div>
+                        <span class="bar-day" [class.today]="w.isToday">{{ w.isToday ? 'Hari ini' : w.day }}</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+                <div class="side">
+                  <div class="side-block">
+                    <h3>Metode bayar hari ini</h3>
+                    @for (m of sa.byMethodToday; track m.method) {
+                      <div class="meter">
+                        <span class="meter-label">{{ methodLabels[m.method] ?? m.method }}</span>
+                        <span class="meter-value">{{ m.amount | rupiah }}</span>
+                        <span class="meter-track"><span [style.width.%]="(m.amount / methodTotal()) * 100"></span></span>
+                      </div>
+                    } @empty {
+                      <p class="muted">Belum ada pembayaran hari ini.</p>
+                    }
+                  </div>
+                  <div class="side-block">
+                    <h3>Terlaris bulan ini</h3>
+                    <ol class="rank">
+                      @for (p of sa.topProducts; track p.productId) {
+                        <li>
+                          <span class="rank-name">{{ p.name }}</span>
+                          <span class="rank-value">{{ p.amount | rupiah }}<small>{{ p.qtyBase }} {{ p.baseUnitName }}</small></span>
+                        </li>
+                      } @empty {
+                        <p class="muted">Belum ada penjualan bulan ini.</p>
+                      }
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </section>
+          }
+        }
+
+        @case ('rx') {
+          @if (d.prescriptions; as rx) {
+            <section class="card">
+              <header class="card-head">
+                <h2>
+                  <i class="pi pi-file-edit"></i>
+                  {{ rx.queueStatus === 'DRAFT' ? 'Resep Menunggu Skrining' : 'Resep Siap Dibayar' }}
+                </h2>
+                @if (rx.queueStatus === 'DRAFT' && can('PRESCRIPTION_INPUT')) {
+                  <a routerLink="/resep" class="head-link">Buka Resep <i class="pi pi-arrow-right"></i></a>
+                } @else if (rx.queueStatus === 'SCREENED' && can('SALE_CREATE')) {
+                  <a routerLink="/kasir" class="head-link">Bayar di Kasir <i class="pi pi-arrow-right"></i></a>
+                }
+              </header>
+              <div class="counters">
+                @if (rx.queueStatus === 'DRAFT') {
+                  <div [class.warn]="rx.awaitingScreening > 0">
+                    <strong>{{ rx.awaitingScreening }}</strong><span>menunggu skrining</span>
+                  </div>
+                }
+                <div [class.warn]="rx.readyToPay > 0">
+                  <strong>{{ rx.readyToPay }}</strong><span>siap dibayar</span>
+                </div>
+              </div>
+              @if (rx.queue.length) {
+                <table class="list">
+                  <thead>
+                    <tr><th>Resep</th><th>Pasien</th><th>Dokter</th><th class="num">Item</th></tr>
+                  </thead>
+                  <tbody>
+                    @for (r of rx.queue; track r.id) {
+                      <tr>
+                        <td><span class="mono">{{ r.number }}</span><small class="block">{{ shortDate(r.prescriptionDate) }}</small></td>
+                        <td>{{ r.patientName }}</td>
+                        <td>{{ r.doctorName }}</td>
+                        <td class="num">{{ r.itemCount }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              } @else {
+                <div class="empty ok">
+                  <i class="pi pi-check-circle"></i>
+                  <div><strong>Antrian kosong</strong><span>Tidak ada resep yang perlu ditindaklanjuti.</span></div>
+                </div>
+              }
+              @if (rx.queueStatus === 'DRAFT' && !can('PRESCRIPTION_VALIDATE')) {
+                <p class="foot"><i class="pi pi-info-circle"></i>Skrining resep dilakukan oleh apoteker.</p>
+              }
+            </section>
+          }
+        }
+
+        @case ('stock') {
+          @if (d.stock; as st) {
+            <section class="card wide">
+              <header class="card-head">
+                <h2><i class="pi pi-warehouse"></i>Peringatan Stok</h2>
+                <span class="head-meta">
+                  @if (st.inventoryValue != null) {
+                    Nilai persediaan <strong>{{ st.inventoryValue | rupiah }}</strong>
+                  }
+                  @if (can('STOCK_COUNT_INPUT')) {
+                    <a routerLink="/stok/daftar" class="head-link">Buka Stok <i class="pi pi-arrow-right"></i></a>
+                  }
+                </span>
+              </header>
+              <div class="two-col">
+                <div>
+                  <h3>ED terdekat <small>(sudah ED & ≤ 3 bulan)</small></h3>
+                  @if (st.expiring.length) {
+                    <table class="list">
+                      <thead>
+                        <tr><th>Obat / batch</th><th>ED</th><th class="num">Stok</th></tr>
+                      </thead>
+                      <tbody>
+                        @for (e of st.expiring; track e.batchId) {
+                          <tr>
+                            <td>
+                              {{ e.productName }}
+                              <small class="block mono">{{ e.batchNumber }}@if (e.isLocked) { · terkunci }</small>
+                            </td>
+                            <td>
+                              <span class="ed" [class.expired]="e.daysLeft <= 0" [class.near]="e.daysLeft > 0">
+                                <i [class]="e.daysLeft <= 0 ? 'pi pi-exclamation-triangle' : 'pi pi-clock'"></i>
+                                {{ shortDate(e.expiryDate) }}
+                              </span>
+                              <small class="block">{{ daysLabel(e.daysLeft) }}</small>
+                            </td>
+                            <td class="num">{{ e.qtyBase }} <small>{{ e.baseUnitName }}</small></td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                    @if (st.nearExpiryCount + st.expiredCount > st.expiring.length) {
+                      <p class="more">+{{ st.nearExpiryCount + st.expiredCount - st.expiring.length }} batch lainnya</p>
+                    }
+                  } @else {
+                    <div class="empty ok">
+                      <i class="pi pi-check-circle"></i>
+                      <div><strong>Aman</strong><span>Tidak ada batch ber-stok yang ED dalam 3 bulan.</span></div>
+                    </div>
+                  }
+                </div>
+                <div>
+                  <h3>Stok di bawah minimal</h3>
+                  @if (st.lowStock.length) {
+                    <table class="list">
+                      <thead>
+                        <tr><th>Obat</th><th class="num">Stok / min</th></tr>
+                      </thead>
+                      <tbody>
+                        @for (l of st.lowStock; track l.productId) {
+                          <tr>
+                            <td>{{ l.name }}<small class="block mono">{{ l.code }}</small></td>
+                            <td class="num">
+                              <span class="stock" [class.zero]="l.stockBase === 0">{{ l.stockBase }}</span>
+                              <small> / {{ l.minStockBase }} {{ l.baseUnitName }}</small>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                    @if (st.lowCount > st.lowStock.length) {
+                      <p class="more">+{{ st.lowCount - st.lowStock.length }} obat lainnya</p>
+                    }
+                  } @else {
+                    <div class="empty ok">
+                      <i class="pi pi-check-circle"></i>
+                      <div><strong>Aman</strong><span>Semua obat di atas stok minimal.</span></div>
+                    </div>
+                  }
+                </div>
+              </div>
+            </section>
+          }
+        }
+
+        @case ('opname') {
+          @if (d.opname; as op) {
+            <section class="card">
+              <header class="card-head">
+                <h2><i class="pi pi-check-square"></i>Stok Opname</h2>
+                <a routerLink="/stok/opname" class="head-link">Buka Opname <i class="pi pi-arrow-right"></i></a>
+              </header>
+              @if (!op.openingLocked) {
+                <p class="banner warn">
+                  <i class="pi pi-flag"></i>
+                  Stok awal belum dikunci.
+                  {{ op.canApprove ? 'Kunci setelah semua opname stok awal disetujui.' : 'Selesaikan input stok awal, lalu minta Pemilik/Apoteker menguncinya.' }}
+                </p>
+              }
+              <div class="counters">
+                <div [class.warn]="op.awaitingApproval > 0 && op.canApprove">
+                  <strong>{{ op.awaitingApproval }}</strong>
+                  <span>{{ op.canApprove ? 'menunggu persetujuan Anda' : 'menunggu persetujuan' }}</span>
+                </div>
+                <div><strong>{{ op.drafts }}</strong><span>masih draft</span></div>
+              </div>
+              @if (op.pending.length) {
+                <table class="list">
+                  <tbody>
+                    @for (o of op.pending; track o.id) {
+                      <tr class="clickable" [routerLink]="['/stok/opname', o.id]">
+                        <td>
+                          <span class="mono">{{ o.number }}</span>
+                          <small class="block">{{ o.opnameType === 'OPENING' ? 'Stok awal' : 'Berkala' }}{{ o.scopeNote ? ' · ' + o.scopeNote : '' }}</small>
+                        </td>
+                        <td><small>{{ o.createdBy ?? '–' }}</small><small class="block">{{ o.itemCount }} baris</small></td>
+                        <td class="num">
+                          <span class="status-pill" [class.warn]="o.status === 'SUBMITTED'">
+                            {{ o.status === 'SUBMITTED' ? 'Diajukan' : 'Draft' }}
+                          </span>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              } @else {
+                <div class="empty ok">
+                  <i class="pi pi-check-circle"></i>
+                  <div><strong>Tidak ada opname terbuka</strong><span>Semua opname sudah disetujui atau dibatalkan.</span></div>
+                </div>
+              }
+            </section>
+          }
+        }
+
+        @case ('debts') {
+          @if (d.debts; as db) {
+            <section class="card">
+              <header class="card-head">
+                <h2><i class="pi pi-credit-card"></i>Hutang Supplier</h2>
+                <span class="head-meta">Total <strong>{{ db.outstanding.amount | rupiah }}</strong> · {{ db.outstanding.count }} faktur</span>
+              </header>
+              @if (db.upcoming.length) {
+                <table class="list">
+                  <thead>
+                    <tr><th>Supplier / faktur</th><th>Jatuh tempo</th><th class="num">Sisa</th></tr>
+                  </thead>
+                  <tbody>
+                    @for (r of db.upcoming; track r.purchaseId) {
+                      <tr>
+                        <td>{{ r.supplierName }}<small class="block mono">{{ r.invoiceNumber }}</small></td>
+                        <td>
+                          <span class="ed" [class.expired]="r.daysLeft < 0" [class.near]="r.daysLeft >= 0 && r.daysLeft <= 7">
+                            @if (r.daysLeft < 0) {
+                              <i class="pi pi-exclamation-triangle"></i>
+                            }
+                            {{ shortDate(r.dueDate) }}
+                          </span>
+                          <small class="block">{{ dueLabel(r.daysLeft) }}</small>
+                        </td>
+                        <td class="num strong">{{ r.outstanding | rupiah }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              } @else {
+                <div class="empty ok">
+                  <i class="pi pi-check-circle"></i>
+                  <div><strong>Tidak ada hutang</strong><span>Semua faktur kredit sudah lunas.</span></div>
+                </div>
+              }
+            </section>
+          }
+        }
+      }
+    }
+  </div>
+}

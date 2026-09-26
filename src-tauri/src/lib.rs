@@ -1,5 +1,6 @@
 mod audit;
 mod auth;
+mod dashboard;
 mod db;
 mod error;
 mod inventory;
@@ -94,6 +95,7 @@ pub fn run() {
             master::commands::product_delete,
             master::commands::product_set_active_many,
             master::commands::product_delete_many,
+            dashboard::commands::dashboard_get,
             audit::commands::audit_page,
             audit::commands::audit_users,
             prescription::commands::doctor_list,
