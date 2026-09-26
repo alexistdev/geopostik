@@ -8,6 +8,7 @@ mod license;
 mod master;
 mod prescription;
 mod purchasing;
+mod reports;
 mod sales;
 mod settings;
 mod state;
@@ -98,6 +99,12 @@ pub fn run() {
             master::commands::product_set_active_many,
             master::commands::product_delete_many,
             dashboard::commands::dashboard_get,
+            reports::commands::report_sales,
+            reports::commands::report_products,
+            reports::commands::report_inventory,
+            reports::commands::report_expiry,
+            reports::commands::report_purchases,
+            reports::commands::report_sipnap,
             audit::commands::audit_page,
             audit::commands::audit_users,
             prescription::commands::doctor_list,

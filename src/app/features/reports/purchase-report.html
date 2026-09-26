@@ -1,0 +1,135 @@
+<div class="report-bar">
+  <app-report-period [(from)]="from" [(to)]="to" (apply)="load()" />
+  <div class="actions">
+    <p-button icon="pi pi-print" label="Cetak" severity="secondary" [outlined]="true" [disabled]="!data()" (onClick)="print()" />
+  </div>
+</div>
+
+@let d = data();
+
+@if (!d) {
+  <p-skeleton height="20rem" borderRadius="14px" />
+} @else {
+  <div #content>
+    <div class="tiles">
+      <div class="tile">
+        <span class="tile-icon"><i class="pi pi-truck"></i></span>
+        <span class="tile-body">
+          <span class="tile-label">Total pembelian</span>
+          <span class="tile-value">{{ d.total | rupiah }}</span>
+          <span class="tile-sub">{{ d.count }} faktur · diskon {{ d.discount | rupiah }} · PPN {{ d.tax | rupiah }}</span>
+        </span>
+      </div>
+      <div class="tile">
+        <span class="tile-icon"><i class="pi pi-money-bill"></i></span>
+        <span class="tile-body">
+          <span class="tile-label">Tunai</span>
+          <span class="tile-value">{{ d.cashTotal | rupiah }}</span>
+        </span>
+      </div>
+      <div class="tile">
+        <span class="tile-icon"><i class="pi pi-credit-card"></i></span>
+        <span class="tile-body">
+          <span class="tile-label">Kredit</span>
+          <span class="tile-value">{{ d.creditTotal | rupiah }}</span>
+          @if (d.showsDebt) {
+            <span class="tile-sub">sisa belum dibayar {{ outstanding() | rupiah }}</span>
+          }
+        </span>
+      </div>
+    </div>
+
+    <section class="rpt-card">
+      <header><h2><i class="pi pi-building"></i>Per supplier</h2></header>
+      <table class="rpt">
+        <thead>
+          <tr><th>Supplier</th><th class="num">Faktur</th><th></th><th class="num">Total</th></tr>
+        </thead>
+        <tbody>
+          @for (s of d.bySupplier; track s.supplierId) {
+            <tr>
+              <td class="strong">{{ s.name }}</td>
+              <td class="num">{{ s.count }}</td>
+              <td>
+                <div class="meter">
+                  <span class="track"><span class="fill" [style.width.%]="(s.total / supplierMax()) * 100"></span></span>
+                </div>
+              </td>
+              <td class="num">{{ s.total | rupiah }}</td>
+            </tr>
+          } @empty {
+            <tr><td colspan="4" class="empty">Belum ada faktur yang diposting pada periode ini.</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+
+    <section class="rpt-card">
+      <header>
+        <h2><i class="pi pi-file"></i>Daftar faktur</h2>
+        @if (d.showsDebt) {
+          <a routerLink="/pembelian/hutang" class="no-print"><small>Kelola hutang supplier →</small></a>
+        }
+      </header>
+      <div class="scroll">
+        <table class="rpt">
+          <thead>
+            <tr>
+              <th>Tgl terima</th>
+              <th>No. faktur</th>
+              <th>Supplier</th>
+              <th>Bayar</th>
+              <th class="num">Total</th>
+              @if (d.showsDebt) {
+                <th>Jatuh tempo</th>
+                <th class="num">Sisa hutang</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (i of d.invoices; track i.purchaseId) {
+              <tr>
+                <td>{{ formatDate(i.receivedDate) }}</td>
+                <td>
+                  <span class="mono strong">{{ i.invoiceNumber }}</span>
+                  <small class="block"><a [routerLink]="['/pembelian/faktur', i.purchaseId]" class="mono">{{ i.number }}</a></small>
+                </td>
+                <td>{{ i.supplierName }}</td>
+                <td>
+                  <span class="pill" [class.warn]="i.paymentType === 'CREDIT'">{{ i.paymentType === 'CREDIT' ? 'Kredit' : 'Tunai' }}</span>
+                </td>
+                <td class="num strong">{{ i.total | rupiah }}</td>
+                @if (d.showsDebt) {
+                  <td>{{ i.dueDate ? formatDate(i.dueDate) : '–' }}</td>
+                  <td class="num">
+                    @if (i.outstanding == null) {
+                      –
+                    } @else if (i.outstanding > 0) {
+                      <span class="neg">{{ i.outstanding | rupiah }}</span>
+                    } @else {
+                      <span class="pill good"><i class="pi pi-check"></i>Lunas</span>
+                    }
+                  </td>
+                }
+              </tr>
+            } @empty {
+              <tr><td colspan="7" class="empty">Belum ada faktur yang diposting pada periode ini.</td></tr>
+            }
+          </tbody>
+          @if (d.invoices.length) {
+            <tfoot>
+              <tr>
+                <td colspan="4">Total</td>
+                <td class="num">{{ d.total | rupiah }}</td>
+                @if (d.showsDebt) {
+                  <td></td>
+                  <td class="num">{{ outstanding() | rupiah }}</td>
+                }
+              </tr>
+            </tfoot>
+          }
+        </table>
+      </div>
+    </section>
+  </div>
+}

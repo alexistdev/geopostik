@@ -1,0 +1,245 @@
+<div class="report-bar">
+  <app-report-period [(from)]="from" [(to)]="to" (apply)="load()" />
+  <div class="actions">
+    <p-button icon="pi pi-print" label="Cetak" severity="secondary" [outlined]="true" [disabled]="!data()" (onClick)="print()" />
+  </div>
+</div>
+
+@let d = data();
+
+@if (!d) {
+  <div class="tiles">
+    @for (i of [1, 2, 3, 4]; track i) {
+      <p-skeleton height="5.5rem" borderRadius="14px" />
+    }
+  </div>
+} @else {
+  @if (d.ownOnly) {
+    <div class="scope-note"><i class="pi pi-user"></i>Laporan ini hanya berisi nota yang Anda buat sendiri.</div>
+  }
+
+  <div #content>
+    <div class="tiles">
+      <div class="tile">
+        <span class="tile-icon"><i class="pi pi-wallet"></i></span>
+        <span class="tile-body">
+          <span class="tile-label">Omzet</span>
+          <span class="tile-value">{{ d.summary.net | rupiah }}</span>
+          <span class="tile-sub">{{ d.summary.count }} nota · rata-rata {{ average() | rupiah }}</span>
+        </span>
+      </div>
+      @if (d.summary.grossProfit != null) {
+        <div class="tile" [class.tone-good]="d.summary.grossProfit >= 0" [class.tone-danger]="d.summary.grossProfit < 0">
+          <span class="tile-icon"><i class="pi pi-chart-line"></i></span>
+          <span class="tile-body">
+            <span class="tile-label">Laba kotor</span>
+            <span class="tile-value">{{ d.summary.grossProfit | rupiah }}</span>
+            <span class="tile-sub">
+              HPP {{ d.summary.cost | rupiah }}
+              @if (margin() != null) {
+                · margin {{ margin() }}%
+              }
+            </span>
+          </span>
+        </div>
+      }
+      <div class="tile">
+        <span class="tile-icon"><i class="pi pi-file-edit"></i></span>
+        <span class="tile-body">
+          <span class="tile-label">Penjualan resep</span>
+          <span class="tile-value">{{ d.summary.prescriptionAmount | rupiah }}</span>
+          <span class="tile-sub">{{ d.summary.prescriptionCount }} nota (termasuk di omzet)</span>
+        </span>
+      </div>
+      <div class="tile">
+        <span class="tile-icon"><i class="pi pi-percentage"></i></span>
+        <span class="tile-body">
+          <span class="tile-label">Diskon</span>
+          <span class="tile-value">{{ d.summary.discount | rupiah }}</span>
+          <span class="tile-sub">Subtotal {{ d.summary.subtotal | rupiah }}</span>
+        </span>
+      </div>
+      <div class="tile" [class.tone-warn]="d.summary.voidCount > 0">
+        <span class="tile-icon"><i class="pi pi-ban"></i></span>
+        <span class="tile-body">
+          <span class="tile-label">Nota batal</span>
+          <span class="tile-value">{{ d.summary.voidCount }}</span>
+          <span class="tile-sub">senilai {{ d.summary.voidAmount | rupiah }}</span>
+        </span>
+      </div>
+    </div>
+
+    <section class="rpt-card">
+      <header>
+        <h2><i class="pi pi-chart-bar"></i>Omzet harian</h2>
+        <small>{{ formatDate(d.from) }} – {{ formatDate(d.to) }}</small>
+      </header>
+      <div class="chart no-print">
+        <div class="bars" (mouseleave)="hover.set(null)">
+          @for (b of bars(); track b.date; let i = $index) {
+            <div class="bar" [class.hover]="hover() === i" (mouseenter)="hover.set(i)" [attr.aria-label]="barTitle(b)">
+              @if (bars().length <= 16) {
+                <span class="val">{{ b.short }}</span>
+              }
+              <span class="fill" [style.height.%]="b.pct"></span>
+            </div>
+          }
+        </div>
+        <div class="axis">
+          @for (b of bars(); track b.date; let i = $index) {
+            <span>{{ i % labelEvery() === 0 ? b.label : '' }}</span>
+          }
+        </div>
+        <div class="chart-info">
+          @if (hover() != null) {
+            {{ barTitle(bars()[hover()!]) }}
+          } @else {
+            Arahkan kursor ke batang untuk melihat angka per hari.
+          }
+        </div>
+      </div>
+      <div class="scroll">
+        <table class="rpt">
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th class="num">Nota</th>
+              <th class="num">Omzet</th>
+              @if (d.summary.grossProfit != null) {
+                <th class="num">Laba kotor</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of activeDays(); track r.date) {
+              <tr>
+                <td>{{ formatDate(r.date) }}</td>
+                <td class="num">{{ r.count }}</td>
+                <td class="num">{{ r.amount | rupiah }}</td>
+                @if (r.grossProfit != null) {
+                  <td class="num" [class.neg]="r.grossProfit < 0">{{ r.grossProfit | rupiah }}</td>
+                }
+              </tr>
+            } @empty {
+              <tr><td colspan="4" class="empty">Belum ada penjualan pada periode ini.</td></tr>
+            }
+          </tbody>
+          @if (activeDays().length) {
+            <tfoot>
+              <tr>
+                <td>Total</td>
+                <td class="num">{{ d.summary.count }}</td>
+                <td class="num">{{ d.summary.net | rupiah }}</td>
+                @if (d.summary.grossProfit != null) {
+                  <td class="num">{{ d.summary.grossProfit | rupiah }}</td>
+                }
+              </tr>
+            </tfoot>
+          }
+        </table>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="rpt-card">
+        <header><h2><i class="pi pi-credit-card"></i>Metode bayar</h2></header>
+        <table class="rpt">
+          <thead>
+            <tr><th>Metode</th><th class="num">Nota</th><th>Porsi</th><th class="num">Jumlah</th></tr>
+          </thead>
+          <tbody>
+            @for (m of d.byMethod; track m.method) {
+              <tr>
+                <td class="strong">{{ methodLabels[m.method] ?? m.method }}</td>
+                <td class="num">{{ m.count }}</td>
+                <td>
+                  <div class="meter">
+                    <span class="track"><span class="fill" [style.width.%]="(m.amount / methodTotal()) * 100"></span></span>
+                    <small>{{ ((m.amount / methodTotal()) * 100).toFixed(0) }}%</small>
+                  </div>
+                </td>
+                <td class="num">{{ m.amount | rupiah }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="4" class="empty">Belum ada pembayaran.</td></tr>
+            }
+          </tbody>
+        </table>
+      </section>
+
+      <section class="rpt-card">
+        <header><h2><i class="pi pi-users"></i>Per kasir</h2></header>
+        <table class="rpt">
+          <thead>
+            <tr><th>Kasir</th><th class="num">Nota</th><th></th><th class="num">Omzet</th></tr>
+          </thead>
+          <tbody>
+            @for (c of d.byCashier; track c.userId) {
+              <tr>
+                <td class="strong">{{ c.name }}</td>
+                <td class="num">{{ c.count }}</td>
+                <td>
+                  <div class="meter">
+                    <span class="track"><span class="fill" [style.width.%]="(c.amount / cashierMax()) * 100"></span></span>
+                  </div>
+                </td>
+                <td class="num">{{ c.amount | rupiah }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="4" class="empty">Belum ada penjualan.</td></tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <section class="rpt-card">
+      <header>
+        <h2><i class="pi pi-clock"></i>Shift</h2>
+        <small>Shift yang dibuka dalam periode, terbaru dulu</small>
+      </header>
+      <div class="scroll">
+        <table class="rpt">
+          <thead>
+            <tr>
+              <th>Dibuka oleh</th>
+              <th>Buka</th>
+              <th>Tutup</th>
+              <th class="num">Nota</th>
+              <th class="num">Penjualan</th>
+              <th class="num">Modal</th>
+              <th class="num">Tunai seharusnya</th>
+              <th class="num">Tunai dihitung</th>
+              <th class="num">Selisih</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of d.shifts; track s.id) {
+              <tr>
+                <td class="strong">{{ s.openedBy }}</td>
+                <td>{{ s.openedAt | dateTime }}</td>
+                <td>
+                  @if (s.status === 'OPEN') {
+                    <span class="pill good"><i class="pi pi-circle-fill"></i>Terbuka</span>
+                  } @else {
+                    {{ s.closedAt | dateTime }}
+                  }
+                </td>
+                <td class="num">{{ s.count }}</td>
+                <td class="num">{{ s.amount | rupiah }}</td>
+                <td class="num">{{ s.openingCash | rupiah }}</td>
+                <td class="num">{{ s.expectedCash | rupiah }}</td>
+                <td class="num">{{ s.countedCash | rupiah }}</td>
+                <td class="num" [class.neg]="(s.difference ?? 0) < 0" [class.pos]="(s.difference ?? 0) > 0">
+                  {{ s.difference | rupiah }}
+                </td>
+              </tr>
+            } @empty {
+              <tr><td colspan="9" class="empty">Tidak ada shift pada periode ini.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+}

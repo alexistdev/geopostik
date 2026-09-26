@@ -1,0 +1,18 @@
+@use 'report-shared';
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+
+  label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--p-text-muted-color);
+  }
+}
+
+tr.expired td:first-child {
+  box-shadow: inset 3px 0 0 var(--danger);
+}

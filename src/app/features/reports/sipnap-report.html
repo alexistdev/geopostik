@@ -1,0 +1,70 @@
+<div class="report-bar">
+  <div class="filters">
+    <label for="sipnapMonth">Bulan</label>
+    <input pInputText id="sipnapMonth" type="month" [(ngModel)]="month" (change)="load()" />
+  </div>
+  <div class="actions">
+    <p-button icon="pi pi-refresh" label="Muat ulang" severity="secondary" [outlined]="true" [loading]="loading()" (onClick)="load()" />
+    <p-button icon="pi pi-print" label="Cetak" severity="secondary" [outlined]="true" [disabled]="!data()" (onClick)="print()" />
+  </div>
+</div>
+
+<p class="info">
+  <i class="pi pi-info-circle"></i>
+  <span>
+    Dihitung dari kartu stok. Pemasukan = stok awal + pembelian (dikurangi batal beli); penjualan sudah dikurangi nota batal
+    dan retur; pemusnahan termasuk retur ke supplier; penyesuaian berasal dari stok opname. Jumlah dalam satuan dasar.
+  </span>
+</p>
+
+@if (!data()) {
+  <p-skeleton height="16rem" borderRadius="14px" />
+} @else {
+  <div #content>
+    @for (g of groups(); track g.value) {
+      <section class="rpt-card">
+        <header>
+          <h2><i class="pi pi-shield"></i>{{ g.label }}</h2>
+          <small>{{ title() }} · {{ g.rows.length }} obat</small>
+        </header>
+        <div class="scroll">
+          <table class="rpt">
+            <thead>
+              <tr>
+                <th class="rank">No</th>
+                <th>Nama obat</th>
+                <th>Satuan</th>
+                <th class="num">Stok awal</th>
+                <th class="num">Pemasukan</th>
+                <th class="num">Penjualan</th>
+                <th class="num">Pemusnahan</th>
+                <th class="num">Penyesuaian</th>
+                <th class="num">Stok akhir</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of g.rows; track r.productId; let i = $index) {
+                <tr [class.idle]="!hasMovement(r)">
+                  <td class="rank">{{ i + 1 }}</td>
+                  <td>
+                    <span class="strong">{{ r.name }}</span>
+                    <small class="block mono">{{ r.code }}</small>
+                  </td>
+                  <td>{{ r.baseUnitName }}</td>
+                  <td class="num">{{ r.opening }}</td>
+                  <td class="num">{{ r.received }}</td>
+                  <td class="num">{{ r.sold }}</td>
+                  <td class="num">{{ r.destroyed }}</td>
+                  <td class="num" [class.neg]="r.adjusted < 0">{{ r.adjusted > 0 ? '+' + r.adjusted : r.adjusted }}</td>
+                  <td class="num closing">{{ r.closing }}</td>
+                </tr>
+              } @empty {
+                <tr><td colspan="9" class="empty">Tidak ada obat {{ g.label.toLowerCase() }}.</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
+  </div>
+}

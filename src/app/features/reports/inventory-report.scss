@@ -1,0 +1,10 @@
+@use 'report-shared';
+
+.report-bar p-iconfield input {
+  width: 280px;
+  border-radius: 999px;
+}
+
+.meter {
+  min-width: 8rem;
+}

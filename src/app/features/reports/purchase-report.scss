@@ -1,0 +1,14 @@
+@use 'report-shared';
+
+a.mono {
+  color: var(--p-primary-600);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.meter {
+  min-width: 8rem;
+}

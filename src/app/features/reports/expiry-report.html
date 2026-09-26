@@ -1,0 +1,106 @@
+<div class="report-bar">
+  <div class="filters">
+    <label for="edHorizon">ED sampai</label>
+    <p-selectbutton
+      id="edHorizon"
+      [options]="horizons"
+      optionLabel="label"
+      optionValue="value"
+      [(ngModel)]="days"
+      (ngModelChange)="load()"
+      [allowEmpty]="false"
+      size="small"
+    />
+  </div>
+  <div class="actions">
+    <p-button icon="pi pi-refresh" label="Muat ulang" severity="secondary" [outlined]="true" [loading]="loading()" (onClick)="load()" />
+    <p-button icon="pi pi-print" label="Cetak" severity="secondary" [outlined]="true" [disabled]="!data()" (onClick)="print()" />
+  </div>
+</div>
+
+@let d = data();
+
+@if (!d) {
+  <p-skeleton height="20rem" borderRadius="14px" />
+} @else {
+  <div class="tiles">
+    <button type="button" class="tile tone-danger tile-btn" [class.active]="show() === 'EXPIRED'" (click)="show.set(show() === 'EXPIRED' ? 'ALL' : 'EXPIRED')">
+      <span class="tile-icon"><i class="pi pi-exclamation-triangle"></i></span>
+      <span class="tile-body">
+        <span class="tile-label">Sudah ED</span>
+        <span class="tile-value">{{ d.expiredCount }} batch</span>
+        <span class="tile-sub">
+          @if (d.expiredValue != null) {
+            senilai {{ d.expiredValue | rupiah }} ·
+          }
+          terkunci, tidak bisa dijual
+        </span>
+      </span>
+    </button>
+    <button type="button" class="tile tone-warn tile-btn" [class.active]="show() === 'NEAR'" (click)="show.set(show() === 'NEAR' ? 'ALL' : 'NEAR')">
+      <span class="tile-icon"><i class="pi pi-clock"></i></span>
+      <span class="tile-body">
+        <span class="tile-label">Akan ED</span>
+        <span class="tile-value">{{ d.nearCount }} batch</span>
+        <span class="tile-sub">
+          @if (d.nearValue != null) {
+            senilai {{ d.nearValue | rupiah }} ·
+          }
+          prioritaskan dijual / retur
+        </span>
+      </span>
+    </button>
+  </div>
+
+  <div #content>
+    <section class="rpt-card">
+      <header>
+        <h2><i class="pi pi-calendar-times"></i>Daftar batch</h2>
+        <small>Sudah ED dulu, lalu ED terdekat</small>
+      </header>
+      <div class="scroll">
+        <table class="rpt">
+          <thead>
+            <tr>
+              <th>Obat</th>
+              <th>No. batch</th>
+              <th>ED</th>
+              <th>Status</th>
+              <th class="num">Stok</th>
+              @if (viewCost) {
+                <th class="num">Nilai HPP</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of rows(); track r.batchId) {
+              <tr [class.expired]="r.daysLeft <= 0">
+                <td>
+                  <span class="strong">{{ r.productName }}</span>
+                  <small class="block mono">{{ r.code }}</small>
+                </td>
+                <td class="mono">{{ r.batchNumber }}</td>
+                <td>{{ formatDate(r.expiryDate) }}</td>
+                <td>
+                  <span class="pill" [class.danger]="r.daysLeft <= 0" [class.warn]="r.daysLeft > 0">
+                    <i class="pi" [class.pi-exclamation-triangle]="r.daysLeft <= 0" [class.pi-clock]="r.daysLeft > 0"></i>
+                    {{ daysLabel(r.daysLeft) }}
+                  </span>
+                  @if (r.isLocked && r.daysLeft > 0) {
+                    <span class="pill"><i class="pi pi-lock"></i>Terkunci</span>
+                  }
+                </td>
+                <td class="num">{{ r.qtyBase }} <small>{{ r.baseUnitName }}</small></td>
+                @if (viewCost) {
+                  <td class="num">{{ r.value | rupiah }}</td>
+                }
+              </tr>
+            } @empty {
+              <tr><td colspan="6" class="empty">Tidak ada batch pada filter ini.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+}

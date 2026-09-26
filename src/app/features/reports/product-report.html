@@ -1,0 +1,127 @@
+<div class="report-bar">
+  <app-report-period [(from)]="from" [(to)]="to" (apply)="load()" />
+  <div class="actions">
+    <p-button icon="pi pi-print" label="Cetak" severity="secondary" [outlined]="true" [disabled]="!data()" (onClick)="print()" />
+  </div>
+</div>
+
+@let d = data();
+
+@if (!d) {
+  <p-skeleton height="20rem" borderRadius="14px" />
+} @else {
+  <div #content>
+    <section class="rpt-card">
+      <header>
+        <h2><i class="pi pi-star"></i>Obat terlaris</h2>
+        <div class="sorter no-print" role="group" aria-label="Urutkan">
+          <button type="button" [class.active]="sort() === 'amount'" (click)="sort.set('amount')">Nilai</button>
+          <button type="button" [class.active]="sort() === 'qty'" (click)="sort.set('qty')">Jumlah</button>
+          @if (viewCost()) {
+            <button type="button" [class.active]="sort() === 'profit'" (click)="sort.set('profit')">Laba</button>
+          }
+        </div>
+      </header>
+      <div class="scroll">
+        <table class="rpt">
+          <thead>
+            <tr>
+              <th class="rank">#</th>
+              <th>Obat</th>
+              <th class="num">Terjual</th>
+              <th class="num">Nota</th>
+              <th>Porsi nilai</th>
+              <th class="num">Nilai jual</th>
+              @if (viewCost()) {
+                <th class="num">HPP</th>
+                <th class="num">Laba kotor</th>
+                <th class="num">Margin</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of top(); track r.productId; let i = $index) {
+              <tr>
+                <td class="rank">{{ i + 1 }}</td>
+                <td>
+                  <span class="strong">{{ r.name }}</span>
+                  <small class="block mono">{{ r.code }}</small>
+                </td>
+                <td class="num">{{ r.qtyBase }} <small>{{ r.baseUnitName }}</small></td>
+                <td class="num">{{ r.saleCount }}</td>
+                <td>
+                  <div class="meter">
+                    <span class="track"><span class="fill" [style.width.%]="(r.amount / topMax()) * 100"></span></span>
+                    <small>{{ topTotal() ? ((r.amount / topTotal()) * 100).toFixed(1) : 0 }}%</small>
+                  </div>
+                </td>
+                <td class="num strong">{{ r.amount | rupiah }}</td>
+                @if (viewCost()) {
+                  <td class="num">{{ r.cost | rupiah }}</td>
+                  <td class="num" [class.neg]="(r.grossProfit ?? 0) < 0">{{ r.grossProfit | rupiah }}</td>
+                  <td class="num">{{ margin(r.amount, r.grossProfit) }}</td>
+                }
+              </tr>
+            } @empty {
+              <tr><td colspan="9" class="empty">Belum ada obat terjual pada periode ini.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+    @if (viewCost()) {
+      <p class="muted no-print" style="margin: -0.5rem 0 1rem; font-size: 0.78rem">
+        Komponen racikan ikut dihitung jumlahnya; nilai jual dan HPP-nya ada di baris racikan sehingga tidak dihitung di sini.
+      </p>
+    }
+
+    <section class="rpt-card">
+      <header>
+        <h2><i class="pi pi-inbox"></i>Obat tidak laku (slow moving)</h2>
+        <small>
+          Masih ada stok, tidak terjual {{ formatDate(d.from) }} – {{ formatDate(d.to) }}
+          @if (slowValue()) {
+            · nilai stok {{ slowValue() | rupiah }}
+          }
+        </small>
+      </header>
+      <div class="scroll">
+        <table class="rpt">
+          <thead>
+            <tr>
+              <th>Obat</th>
+              <th class="num">Stok</th>
+              <th>Terakhir terjual</th>
+              @if (viewCost()) {
+                <th class="num">Nilai stok</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of d.slow; track r.productId) {
+              <tr>
+                <td>
+                  <span class="strong">{{ r.name }}</span>
+                  <small class="block mono">{{ r.code }}</small>
+                </td>
+                <td class="num">{{ r.stockBase }} <small>{{ r.baseUnitName }}</small></td>
+                <td>
+                  @if (r.lastSoldAt) {
+                    {{ r.lastSoldAt | dateTime }}
+                  } @else {
+                    <span class="pill warn">Belum pernah terjual</span>
+                  }
+                </td>
+                @if (viewCost()) {
+                  <td class="num">{{ r.value | rupiah }}</td>
+                }
+              </tr>
+            } @empty {
+              <tr><td colspan="4" class="empty">Semua obat yang ada stoknya terjual pada periode ini.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+}

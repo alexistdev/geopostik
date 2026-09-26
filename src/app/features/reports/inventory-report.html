@@ -1,0 +1,114 @@
+<div class="report-bar">
+  <p-iconfield>
+    <p-inputicon class="pi pi-search" />
+    <input pInputText type="search" placeholder="Cari nama atau kode obat" [ngModel]="q()" (ngModelChange)="q.set($event)" />
+  </p-iconfield>
+  <div class="actions">
+    <p-button icon="pi pi-refresh" label="Muat ulang" severity="secondary" [outlined]="true" [loading]="loading()" (onClick)="load()" />
+    <p-button icon="pi pi-print" label="Cetak" severity="secondary" [outlined]="true" [disabled]="!data()" (onClick)="print()" />
+  </div>
+</div>
+
+@let d = data();
+
+@if (!d) {
+  <p-skeleton height="20rem" borderRadius="14px" />
+} @else {
+  <div #content>
+    <div class="tiles">
+      <div class="tile">
+        <span class="tile-icon"><i class="pi pi-warehouse"></i></span>
+        <span class="tile-body">
+          <span class="tile-label">Nilai persediaan</span>
+          <span class="tile-value">{{ d.totalValue | rupiah }}</span>
+          <span class="tile-sub">Σ stok × HPP per batch</span>
+        </span>
+      </div>
+      <div class="tile">
+        <span class="tile-icon"><i class="pi pi-box"></i></span>
+        <span class="tile-body">
+          <span class="tile-label">Obat ber-stok</span>
+          <span class="tile-value">{{ d.productCount }}</span>
+          <span class="tile-sub">{{ d.batchCount }} batch</span>
+        </span>
+      </div>
+      <div class="tile" [class.tone-danger]="d.expiredValue > 0" [class.tone-good]="d.expiredValue === 0">
+        <span class="tile-icon"><i class="pi pi-exclamation-triangle"></i></span>
+        <span class="tile-body">
+          <span class="tile-label">Sudah ED</span>
+          <span class="tile-value">{{ d.expiredValue | rupiah }}</span>
+          <span class="tile-sub">{{ share(d.expiredValue) }} dari nilai persediaan</span>
+        </span>
+      </div>
+    </div>
+
+    <section class="rpt-card">
+      <header><h2><i class="pi pi-tags"></i>Per kategori</h2></header>
+      <table class="rpt">
+        <thead>
+          <tr><th>Kategori</th><th class="num">Obat</th><th>Porsi</th><th class="num">Nilai</th></tr>
+        </thead>
+        <tbody>
+          @for (c of d.byCategory; track c.category) {
+            <tr>
+              <td class="strong">{{ c.category ?? 'Tanpa kategori' }}</td>
+              <td class="num">{{ c.productCount }}</td>
+              <td>
+                <div class="meter">
+                  <span class="track"><span class="fill" [style.width.%]="(c.value / categoryMax()) * 100"></span></span>
+                  <small>{{ share(c.value) }}</small>
+                </div>
+              </td>
+              <td class="num">{{ c.value | rupiah }}</td>
+            </tr>
+          } @empty {
+            <tr><td colspan="4" class="empty">Belum ada stok.</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+
+    <section class="rpt-card">
+      <header>
+        <h2><i class="pi pi-list"></i>Per obat</h2>
+        <small>Nilai terbesar dulu · termasuk batch yang sudah ED atau terkunci</small>
+      </header>
+      <div class="scroll">
+        <table class="rpt">
+          <thead>
+            <tr>
+              <th>Obat</th>
+              <th>Kategori</th>
+              <th class="num">Stok</th>
+              <th class="num">Batch</th>
+              <th class="num">Porsi</th>
+              <th class="num">Nilai</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of rows(); track r.productId) {
+              <tr>
+                <td>
+                  <span class="strong">{{ r.name }}</span>
+                  <small class="block mono">{{ r.code }}</small>
+                </td>
+                <td>{{ r.category ?? '–' }}</td>
+                <td class="num">{{ r.stockBase }} <small>{{ r.baseUnitName }}</small></td>
+                <td class="num">{{ r.batchCount }}</td>
+                <td class="num">{{ share(r.value) }}</td>
+                <td class="num strong">{{ r.value | rupiah }}</td>
+              </tr>
+            } @empty {
+              <tr><td colspan="6" class="empty">{{ q() ? 'Tidak ada obat yang cocok.' : 'Belum ada stok.' }}</td></tr>
+            }
+          </tbody>
+          @if (!q() && rows().length) {
+            <tfoot>
+              <tr><td colspan="5">Total</td><td class="num">{{ d.totalValue | rupiah }}</td></tr>
+            </tfoot>
+          }
+        </table>
+      </div>
+    </section>
+  </div>
+}

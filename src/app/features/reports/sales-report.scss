@@ -1,0 +1,65 @@
+@use 'report-shared';
+
+.chart {
+  padding: 1rem 1.1rem 0.75rem;
+}
+
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 11rem;
+}
+
+.bar {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+  min-width: 0;
+  cursor: default;
+
+  .fill {
+    min-height: 2px;
+    border-radius: 4px 4px 0 0;
+    background: var(--bar);
+    transition: background-color 0.12s;
+  }
+
+  &.hover .fill {
+    background: var(--p-primary-600);
+  }
+
+  .val {
+    margin-bottom: 0.2rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+    color: var(--p-text-muted-color);
+  }
+}
+
+.axis {
+  display: flex;
+  gap: 3px;
+  margin-top: 0.35rem;
+
+  span {
+    flex: 1;
+    min-width: 0;
+    overflow: visible;
+    font-size: 0.66rem;
+    white-space: nowrap;
+    color: var(--p-text-muted-color);
+  }
+}
+
+.chart-info {
+  min-height: 1.2rem;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color);
+}

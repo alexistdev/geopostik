@@ -1,9 +1,10 @@
 import { Routes } from '@angular/router';
 
 import { activationGuard, authGuard, guestGuard, permissionGuard, setupGuard } from './core/auth/guards';
+import { firstReportTab } from './features/reports/report-tabs';
 import { NAV_ITEMS } from './layout/nav';
 
-const BUILT = ['dashboard', 'kasir', 'obat', 'master-data', 'resep', 'pembelian', 'stok', 'pengguna', 'pengaturan', 'sistem/log'];
+const BUILT = ['dashboard', 'kasir', 'obat', 'master-data', 'resep', 'pembelian', 'stok', 'laporan', 'pengguna', 'pengaturan', 'sistem/log'];
 
 // Menu yang belum punya halaman sendiri memakai Placeholder.
 const pendingRoutes: Routes = NAV_ITEMS.filter((item) => !BUILT.includes(item.path)).map((item) => ({
@@ -137,6 +138,43 @@ export const routes: Routes = [
           {
             path: 'opname/:id',
             loadComponent: () => import('./features/inventory/opname-detail').then((m) => m.OpnameDetail),
+          },
+        ],
+      },
+      {
+        path: 'laporan',
+        canActivate: [permissionGuard('REPORT_SALES_OWN_SHIFT')],
+        loadComponent: () => import('./features/reports/reports-page').then((m) => m.ReportsPage),
+        children: [
+          { path: '', pathMatch: 'full', canActivate: [firstReportTab], children: [] },
+          {
+            path: 'penjualan',
+            loadComponent: () => import('./features/reports/sales-report').then((m) => m.SalesReport),
+          },
+          {
+            path: 'obat',
+            canActivate: [permissionGuard('REPORT_SALES')],
+            loadComponent: () => import('./features/reports/product-report').then((m) => m.ProductReport),
+          },
+          {
+            path: 'persediaan',
+            canActivate: [permissionGuard('VIEW_COST')],
+            loadComponent: () => import('./features/reports/inventory-report').then((m) => m.InventoryReport),
+          },
+          {
+            path: 'ed',
+            canActivate: [permissionGuard('STOCK_COUNT_INPUT')],
+            loadComponent: () => import('./features/reports/expiry-report').then((m) => m.ExpiryReport),
+          },
+          {
+            path: 'pembelian',
+            canActivate: [permissionGuard('PURCHASE_RECEIVE')],
+            loadComponent: () => import('./features/reports/purchase-report').then((m) => m.PurchaseReport),
+          },
+          {
+            path: 'sipnap',
+            canActivate: [permissionGuard('REPORT_SIPNAP')],
+            loadComponent: () => import('./features/reports/sipnap-report').then((m) => m.SipnapReport),
           },
         ],
       },
