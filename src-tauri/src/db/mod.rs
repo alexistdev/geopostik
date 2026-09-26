@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::sync::LazyLock;
 
-use rusqlite::Connection;
+use rusqlite::{Connection, ErrorCode, Transaction, TransactionBehavior};
 use rusqlite_migration::{M, Migrations};
 
 use crate::error::{AppError, AppResult};
@@ -24,6 +24,7 @@ static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         M::up(include_str!("../../migrations/011_user_soft_delete.sql")),
         M::up(include_str!("../../migrations/012_stock.sql")),
         M::up(include_str!("../../migrations/013_prescriptions.sql")).foreign_key_check(),
+        M::up(include_str!("../../migrations/014_sales.sql")),
     ])
 });
 
@@ -39,6 +40,30 @@ pub fn open(path: &Path) -> AppResult<Connection> {
         tracing::info!("master data awal diisi");
     }
     Ok(conn)
+}
+
+/// Menjalankan `f` dalam satu transaksi tulis `BEGIN IMMEDIATE`: commit bila `f` berhasil,
+/// rollback otomatis (saat `Transaction` di-drop) bila `f` gagal di langkah mana pun.
+///
+/// Kunci tulis SQLite diambil **di awal** transaksi, bukan saat tulis pertama. Semua pembacaan
+/// di dalam `f` (stok batch, status shift, status nota) dan penulisannya jadi satu langkah atomik:
+/// tidak ada penulis lain yang bisa menyelip di antaranya, dan tidak ada deadlock "upgrade" dari
+/// kunci baca ke kunci tulis. Bila database sedang dikunci proses lain (misal backup) lebih lama
+/// dari `busy_timeout`, transaksi ditolak dengan pesan yang jelas tanpa ada data yang berubah.
+pub fn write_tx<T>(conn: &mut Connection, f: impl FnOnce(&Transaction<'_>) -> AppResult<T>) -> AppResult<T> {
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate).map_err(busy_to_conflict)?;
+    let out = f(&tx)?;
+    tx.commit().map_err(busy_to_conflict)?;
+    Ok(out)
+}
+
+fn busy_to_conflict(e: rusqlite::Error) -> AppError {
+    match e.sqlite_error_code() {
+        Some(ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked) => {
+            AppError::Conflict("Database sedang dipakai proses lain (misal backup). Coba lagi sebentar.".into())
+        }
+        _ => AppError::Database(e),
+    }
 }
 
 /// Database in-memory untuk test.

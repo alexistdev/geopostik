@@ -3,7 +3,7 @@ import { Routes } from '@angular/router';
 import { activationGuard, authGuard, guestGuard, permissionGuard, setupGuard } from './core/auth/guards';
 import { NAV_ITEMS } from './layout/nav';
 
-const BUILT = ['dashboard', 'obat', 'master-data', 'resep', 'stok', 'pengguna', 'pengaturan', 'sistem/log'];
+const BUILT = ['dashboard', 'kasir', 'obat', 'master-data', 'resep', 'stok', 'pengguna', 'pengaturan', 'sistem/log'];
 
 // Menu yang belum punya halaman sendiri memakai Placeholder.
 const pendingRoutes: Routes = NAV_ITEMS.filter((item) => !BUILT.includes(item.path)).map((item) => ({
@@ -38,6 +38,11 @@ export const routes: Routes = [
       {
         path: 'dashboard',
         loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.Dashboard),
+      },
+      {
+        path: 'kasir',
+        canActivate: [permissionGuard('SALE_CREATE')],
+        loadComponent: () => import('./features/pos/pos-page').then((m) => m.PosPage),
       },
       {
         path: 'resep',

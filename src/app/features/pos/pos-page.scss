@@ -1,0 +1,656 @@
+// Layar kasir: keranjang di kiri, total & pembayaran di kanan. Mengisi tinggi area konten.
+
+:host {
+  display: block;
+  height: calc(100vh - 110px);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.muted,
+small {
+  color: var(--p-text-muted-color);
+}
+
+.block {
+  display: block;
+}
+
+.strong {
+  font-weight: 600;
+}
+
+.center {
+  text-align: center;
+}
+
+.mono {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.85rem;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+kbd {
+  padding: 0 0.3rem;
+  font-family: inherit;
+  font-size: 0.7rem;
+  color: var(--p-text-muted-color);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 4px;
+  background: var(--p-surface-50);
+}
+
+// ─── Buka shift ──────────────────────────────────────────────────────────────
+
+.center-state {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  gap: 0.5rem;
+  color: var(--p-text-muted-color);
+}
+
+.open-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 380px;
+  padding: 1.75rem;
+  color: var(--p-text-color);
+  background: var(--p-content-background);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 16px;
+  box-shadow: 0 8px 30px -10px rgb(15 23 42 / 0.2);
+
+  h2 {
+    margin: 0;
+    font-size: 1.2rem;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.87rem;
+    color: var(--p-text-muted-color);
+  }
+
+  label {
+    margin-top: 0.5rem;
+    font-weight: 600;
+  }
+}
+
+.open-icon {
+  display: grid;
+  place-items: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  font-size: 1.2rem;
+  color: var(--p-primary-700);
+  background: var(--p-primary-50);
+  border-radius: 12px;
+}
+
+// ─── Layout ──────────────────────────────────────────────────────────────────
+
+.pos {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 1rem;
+  height: 100%;
+}
+
+.cart-panel,
+.pay-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--p-content-background);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--p-content-border-color);
+}
+
+.shift-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--p-text-muted-color);
+
+  .dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--p-emerald-500);
+    box-shadow: 0 0 0 3px var(--p-emerald-100);
+  }
+}
+
+// ─── Pencarian ───────────────────────────────────────────────────────────────
+
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.8rem 0.9rem 0.4rem;
+  padding: 0 0.9rem;
+  border: 2px solid var(--p-primary-500);
+  border-radius: 12px;
+  background: var(--p-content-background);
+
+  > .pi {
+    color: var(--p-text-muted-color);
+  }
+}
+
+.search-input {
+  flex: 1;
+  height: 3rem;
+  font: inherit;
+  font-size: 1.05rem;
+  color: var(--p-text-color);
+  background: none;
+  border: 0;
+  outline: none;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+.results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: -2px;
+  right: -2px;
+  z-index: 20;
+  max-height: 420px;
+  margin: 0;
+  padding: 0.3rem;
+  overflow: auto;
+  list-style: none;
+  background: var(--p-content-background);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px -12px rgb(15 23 42 / 0.3);
+
+  li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 8px;
+    cursor: pointer;
+
+    &.active {
+      background: var(--p-primary-50);
+    }
+
+    // Stok habis: tetap tampil (agar kasir tahu obatnya ada) tapi tidak bisa dipilih.
+    &.out {
+      cursor: not-allowed;
+
+      .r-main,
+      .price {
+        opacity: 0.5;
+      }
+
+      &.active {
+        background: var(--p-red-50);
+      }
+    }
+  }
+
+  .r-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .r-side {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .price {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stock {
+    font-size: 0.78rem;
+    color: var(--p-text-muted-color);
+
+    &.zero {
+      color: var(--p-red-600);
+      font-weight: 600;
+    }
+  }
+}
+
+// ─── Keranjang ───────────────────────────────────────────────────────────────
+
+.cart {
+  flex: 1;
+  min-height: 0;
+  margin: 0.4rem 0.9rem 0;
+  overflow: auto;
+
+  table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+  }
+
+  th.center {
+    text-align: center;
+  }
+
+  th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 0.45rem 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-align: left;
+    text-transform: uppercase;
+    color: var(--p-text-muted-color);
+    background: var(--p-content-background);
+    border-bottom: 1px solid var(--p-content-border-color);
+  }
+
+  th.num {
+    text-align: right;
+  }
+
+  td {
+    padding: 0.45rem 0.5rem;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--p-content-border-color);
+  }
+
+  .name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .tier {
+    color: var(--p-emerald-700);
+    font-weight: 600;
+  }
+
+  .warn-text {
+    color: var(--p-orange-700);
+  }
+
+  :deep(.qty),
+  :deep(.disc) {
+    width: 100%;
+  }
+
+  :deep(.qty-input) {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.2rem;
+    text-align: center;
+  }
+
+  :deep(.disc-input) {
+    width: 100%;
+    min-width: 0;
+    text-align: right;
+  }
+
+  :deep(.qty .p-inputnumber-button) {
+    width: 1.9rem;
+    flex-shrink: 0;
+  }
+}
+
+.empty-cart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 100%;
+  min-height: 12rem;
+  color: var(--p-text-muted-color);
+
+  i {
+    font-size: 2.2rem;
+    opacity: 0.4;
+  }
+
+  strong {
+    color: var(--p-text-color);
+  }
+}
+
+.rx-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.4rem 0.9rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
+  background: var(--p-primary-50);
+
+  > i {
+    font-size: 1.2rem;
+    color: var(--p-primary-700);
+  }
+
+  div {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.problem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.2rem 0.9rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--p-red-700);
+  background: var(--p-red-50);
+  border-radius: 8px;
+}
+
+.keys {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.78rem;
+  color: var(--p-text-muted-color);
+  border-top: 1px solid var(--p-content-border-color);
+}
+
+// ─── Pembayaran ──────────────────────────────────────────────────────────────
+
+.pay-panel {
+  overflow: auto;
+}
+
+.sum {
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--p-content-border-color);
+}
+
+.sum-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.87rem;
+  color: var(--p-text-muted-color);
+  font-variant-numeric: tabular-nums;
+}
+
+.grand {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.6rem;
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  color: #fff;
+  background: var(--p-green-800);
+
+  span {
+    font-size: 0.78rem;
+    font-weight: 600;
+    opacity: 0.8;
+  }
+
+  strong {
+    font-size: 2rem;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.pay {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1rem 1.1rem;
+
+  h3 {
+    margin: 0.4rem 0 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+
+    small {
+      font-weight: 400;
+    }
+  }
+}
+
+.noncash {
+  display: flex;
+  gap: 0.4rem;
+
+  :deep(.grow) {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.ref {
+  font-size: 0.85rem;
+}
+
+:deep(.tendered) {
+  height: 2.8rem;
+  font-size: 1.2rem;
+  text-align: right;
+}
+
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+
+  button {
+    padding: 0.3rem 0.6rem;
+    font: inherit;
+    font-size: 0.8rem;
+    color: var(--p-text-color);
+    background: var(--p-surface-100);
+    border: 1px solid var(--p-content-border-color);
+    border-radius: 999px;
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--p-primary-400);
+    }
+  }
+}
+
+.change {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 0.3rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
+  background: var(--p-emerald-50);
+  color: var(--p-emerald-800);
+
+  strong {
+    font-size: 1.3rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &.short {
+    color: var(--p-red-700);
+    background: var(--p-red-50);
+  }
+}
+
+.auth-note {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--p-orange-700);
+}
+
+:deep(.pay-btn) {
+  height: 3.2rem;
+  margin-top: 0.4rem;
+  font-size: 1.05rem;
+}
+
+.pay-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  kbd {
+    color: inherit;
+    background: transparent;
+    border-color: currentColor;
+    opacity: 0.8;
+  }
+}
+
+// ─── Dialog ──────────────────────────────────────────────────────────────────
+
+.replayed {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--p-primary-700);
+}
+
+.change-big {
+  margin-bottom: 0.9rem;
+  padding: 0.7rem 1rem;
+  text-align: center;
+  font-size: 1rem;
+  border-radius: 10px;
+  color: var(--p-emerald-800);
+  background: var(--p-emerald-50);
+
+  strong {
+    display: block;
+    font-size: 1.8rem;
+  }
+}
+
+.pin-msg {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.pin-input {
+  font-size: 1.4rem;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+
+.rx-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: 10px;
+  cursor: pointer;
+
+  & + & {
+    margin-top: 0.5rem;
+  }
+
+  > span {
+    flex: 1;
+  }
+
+  &:hover {
+    border-color: var(--p-primary-400);
+    background: var(--p-primary-50);
+  }
+}
+
+.close-facts {
+  margin: 0 0 1rem;
+
+  div {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.3rem 0;
+    border-bottom: 1px dashed var(--p-content-border-color);
+  }
+
+  .sub {
+    padding-left: 0.9rem;
+    font-size: 0.85rem;
+    color: var(--p-text-muted-color);
+  }
+
+  .strong {
+    font-weight: 700;
+    border-bottom: 0;
+  }
+
+  dt,
+  dd {
+    margin: 0;
+  }
+
+  dd {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.lbl {
+  display: block;
+  margin: 0.75rem 0 0.35rem;
+  font-weight: 600;
+}
+
+.diff {
+  margin: 0.4rem 0 0;
+  font-weight: 600;
+  color: var(--p-orange-700);
+
+  &.minus {
+    color: var(--p-red-700);
+  }
+
+  &.ok {
+    color: var(--p-emerald-700);
+  }
+}

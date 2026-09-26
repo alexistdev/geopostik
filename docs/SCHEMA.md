@@ -435,6 +435,14 @@ Aturan:
 - Uang tunai yang masuk ke laci = `amount` baris `CASH` (bukan `tendered`), itu yang dihitung
   ke `shifts.expected_cash`.
 
+### Aturan tambahan (migration `014_sales.sql`)
+- `sales.client_ref` (UNIQUE bila terisi): kunci idempotensi per checkout dari layar kasir.
+- Satu resep hanya punya satu nota `COMPLETED` (index unik parsial `sales(prescription_id)`).
+- `sales` tidak bisa dihapus; satu-satunya perubahan yang diizinkan `COMPLETED` → `VOID` tanpa
+  mengubah angka. `sale_items`, `sale_item_batches`, `sale_payments` tidak bisa diubah/dihapus.
+- Nota hanya bisa masuk ke shift `OPEN` (trigger); shift `CLOSED` final dan tidak bisa dihapus.
+- Trigger `prescriptions_closed` diganti: resep `PAID` boleh kembali ke `SCREENED` (saat notanya void).
+
 ---
 
 ## 6. Resep
@@ -517,6 +525,12 @@ products ─┬─ product_units ── product_barcodes
    dan `stock_movements` (trigger mengurangi stok; bila minus → rollback).
 5. Insert `sale_payments`, lalu `audit_logs` bila ada otorisasi.
 6. Commit, lalu cetak struk. Kegagalan cetak **tidak** membatalkan transaksi (ada cetak ulang).
+
+Implementasi: `db::write_tx` (BEGIN IMMEDIATE → commit, rollback otomatis bila gagal) dipanggil
+`sales::service::create_sale`. Sebelum commit, ringkasan stok setiap batch yang tersentuh dicocokkan
+dengan `SUM` kartu stoknya. Test konkurensi (`src-tauri/src/sales/tests.rs`) menjalankan 8 checkout
+bersamaan atas stok yang hanya cukup untuk 5 (lewat mutex bersama maupun koneksi terpisah ke file
+yang sama): tepat 5 berhasil, sisanya ditolak, stok tidak pernah minus.
 
 ## 11. Keputusan
 

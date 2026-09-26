@@ -7,6 +7,7 @@ mod inventory;
 mod license;
 mod master;
 mod prescription;
+mod sales;
 mod settings;
 mod state;
 mod users;
@@ -127,6 +128,16 @@ pub fn run() {
             inventory::commands::opname_cancel,
             inventory::commands::opname_approve,
             inventory::commands::stock_opening_lock,
+            sales::commands::pos_state,
+            sales::commands::shift_open,
+            sales::commands::shift_close,
+            sales::commands::pos_search,
+            sales::commands::sale_create,
+            sales::commands::sale_get,
+            sales::commands::sale_page,
+            sales::commands::sale_void,
+            sales::commands::pos_prescriptions,
+            sales::commands::pos_prescription_quote,
             users::commands::user_list,
             users::commands::user_get,
             users::commands::user_save,

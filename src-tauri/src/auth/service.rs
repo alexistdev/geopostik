@@ -3,7 +3,7 @@ use serde_json::json;
 
 use super::model::{LoginInput, PharmacyProfile, SessionUser, SetupInput};
 use super::repo::{self, NewUser};
-use super::{Role, effective_permissions, password};
+use super::{Permission, Role, effective_permissions, password};
 use crate::audit;
 use crate::error::{AppError, AppResult};
 use crate::settings;
@@ -137,6 +137,28 @@ pub(crate) fn validate_password(password: &str) -> AppResult<()> {
         return Err(AppError::Validation("Password minimal 6 karakter".into()));
     }
     Ok(())
+}
+
+/// User yang memberi otorisasi lewat PIN.
+#[derive(Debug, Clone)]
+pub struct Authorizer {
+    pub id: i64,
+}
+
+/// Otorisasi di layar yang sama (FLOW.md bagian 1): PIN milik user aktif yang punya `permission`.
+/// Hak dihitung dari peran terbaru di database, bukan dari sesi, sehingga user yang baru dicabut
+/// perannya tidak bisa lagi memberi otorisasi.
+pub(crate) fn authorize_pin(conn: &Connection, pin: &str, permission: Permission) -> AppResult<Authorizer> {
+    let pin = pin.trim();
+    validate_pin(pin)?;
+    let access = settings::access(conn)?;
+    for (id, hash) in repo::pin_holders(conn)? {
+        let roles = repo::roles_of(conn, id)?;
+        if effective_permissions(&roles, access).contains(&permission) && password::verify(pin, &hash) {
+            return Ok(Authorizer { id });
+        }
+    }
+    Err(AppError::Validation("PIN salah, atau pemilik PIN tidak berhak memberi otorisasi ini".into()))
 }
 
 pub(crate) fn validate_pin(pin: &str) -> AppResult<()> {

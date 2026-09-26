@@ -199,6 +199,27 @@ Scan barcode / cari nama ─► pilih satuan (tablet/strip/box) ─► jumlah
    ─► Simpan ─► stok berkurang ─► cetak struk ─► buka laci uang (bila tunai)
 ```
 
+Di aplikasi (menu **Kasir**, modul `src-tauri/src/sales/`):
+- Layar kasir hanya bisa dipakai saat shift terbuka (satu shift terbuka untuk seluruh aplikasi).
+  Shift ditutup oleh pembukanya atau Pemilik/Apoteker: sistem menghitung tunai seharusnya di laci
+  (modal + bagian tunai nota yang tidak batal), kasir mengisi hasil hitung fisik, selisih dicatat.
+- Pencarian khusus kasir (hak `SALE_CREATE`, tanpa HPP): barcode persis langsung memilih obat
+  dan satuannya; scan ulang obat + satuan yang sama menambah qty baris (tier dihitung ulang).
+- Harga, tier, diskon, pembulatan, dan stok **selalu dihitung ulang di Rust**. Total dari layar hanya
+  pembanding: bila harga berubah sejak keranjang disusun, pembayaran ditolak dan layar mengambil
+  harga terbaru.
+- Batas diskon per baris tanpa otorisasi: pengaturan `sales.max_discount_bp` (default 10%).
+  Pembulatan total ke bawah: `sales.total_rounding` (default 0 = tanpa pembulatan).
+- Obat keras (termasuk OWA) di penjualan bebas butuh PIN user berhak `SELL_HARD_DRUG`
+  (apoteker yang berjualan sendiri tidak perlu PIN). Psikotropika/narkotika ditolak.
+  PIN salah dicatat di log (`PIN_REJECTED`).
+- **Anti race condition & deadlock:** satu checkout = satu transaksi `BEGIN IMMEDIATE`
+  (baca stok FEFO, kurangi stok, simpan nota tidak bisa diselipi transaksi lain); stok minus
+  ditolak trigger + `CHECK`; setiap checkout membawa kunci idempotensi `client_ref` sehingga
+  klik ganda/kirim ulang tidak membuat nota kedua; urutan kunci tetap (sesi → database) dan
+  verifikasi PIN dilakukan sebelum kunci tulis diambil. Rincian di `src-tauri/src/sales/mod.rs`.
+- Cetak struk ESC/POS dan laci uang menyusul (modul `printing/`); saat ini struk tampil di layar.
+
 ### F. Penjualan dengan resep
 ```
 Input resep: nomor, tanggal, dokter, pasien (nama, umur, alamat)
@@ -265,6 +286,9 @@ Dashboard harian: obat ED ≤ 3 bulan, stok di bawah minimal
 ### I. Batal (void) transaksi
 Hanya dengan **otorisasi PIN Pemilik/Apoteker** dan wajib diberi alasan. Data tidak dihapus,
 hanya ditandai batal, dan stok dikembalikan ke batch asal lewat kartu stok.
+Void hanya untuk nota dari shift yang masih terbuka (nota shift yang sudah ditutup memakai retur
+agar hitungan kas shift lama tidak berubah). Nota resep yang dibatalkan mengembalikan resep ke
+status siap dibayar.
 
 ### J. Laporan
 - Penjualan harian/bulanan (per kasir, per shift, per metode bayar)

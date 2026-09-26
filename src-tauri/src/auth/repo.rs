@@ -61,6 +61,19 @@ pub fn find_by_username(conn: &Connection, username: &str) -> AppResult<Option<L
         .optional()?)
 }
 
+/// User aktif (belum dihapus) yang punya PIN, kandidat otorisasi PIN.
+pub fn pin_holders(conn: &Connection) -> AppResult<Vec<(i64, String)>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, pin_hash FROM users
+         WHERE pin_hash IS NOT NULL AND is_active = 1 AND deleted_at IS NULL
+         ORDER BY id",
+    )?;
+    let rows = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<Result<_, _>>()?;
+    Ok(rows)
+}
+
 pub fn roles_of(conn: &Connection, user_id: i64) -> AppResult<Vec<Role>> {
     let mut stmt = conn.prepare("SELECT role FROM user_roles WHERE user_id = ?1 ORDER BY role")?;
     let roles = stmt

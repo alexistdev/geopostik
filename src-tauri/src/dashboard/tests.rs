@@ -29,16 +29,21 @@ fn setup() -> Connection {
                     (2, 1, 'A0', '2026-09-01', 15000, 10, 'OPENING'),
                     (3, 2, 'X1', '2028-05-01', 50000, 20, 'OPENING');
 
-         INSERT INTO shifts (id, user_id, opened_at, closed_at, opening_cash, status)
-             VALUES (1, 1, '2026-09-26 07:00:00', NULL, 100000, 'OPEN'),
-                    (2, 2, '2026-09-25 07:00:00', '2026-09-25 21:00:00', 50000, 'CLOSED');
+         -- Shift kemarin: nota harus masuk saat shift masih terbuka, baru ditutup.
+         INSERT INTO shifts (id, user_id, opened_at, opening_cash, status)
+             VALUES (2, 2, '2026-09-25 07:00:00', 50000, 'OPEN');
+         INSERT INTO sales (id, number, shift_id, cashier_id, sale_type, sold_at, subtotal, grand_total, status)
+             VALUES (4, 'PJ-0', 2, 2, 'OTC', '2026-09-25 15:00:00', 4000, 4000, 'COMPLETED');
+         UPDATE shifts SET status = 'CLOSED', closed_at = '2026-09-25 21:00:00' WHERE id = 2;
+
+         INSERT INTO shifts (id, user_id, opened_at, opening_cash, status)
+             VALUES (1, 1, '2026-09-26 07:00:00', 100000, 'OPEN');
          INSERT INTO sales (id, number, shift_id, cashier_id, sale_type, sold_at, subtotal, grand_total, status,
                             voided_at, voided_by, void_reason)
              VALUES (1, 'PJ-1', 1, 1, 'OTC', '2026-09-26 08:00:00', 10000, 10000, 'COMPLETED', NULL, NULL, NULL),
                     (2, 'PJ-2', 1, 1, 'OTC', '2026-09-26 09:00:00', 5000, 5000, 'COMPLETED', NULL, NULL, NULL),
                     (3, 'PJ-3', 1, 1, 'OTC', '2026-09-26 09:30:00', 7000, 7000, 'VOID',
-                     '2026-09-26 09:40:00', 1, 'salah input'),
-                    (4, 'PJ-0', 2, 2, 'OTC', '2026-09-25 15:00:00', 4000, 4000, 'COMPLETED', NULL, NULL, NULL);
+                     '2026-09-26 09:40:00', 1, 'salah input');
          INSERT INTO sale_items (id, sale_id, line_no, item_kind, product_id, product_unit_id, description,
                                  qty, conversion, qty_base, unit_price, line_total)
              VALUES (1, 1, 1, 'PRODUCT', 1, 1, 'Paracetamol', 20, 1, 20, 500, 10000),

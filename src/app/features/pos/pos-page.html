@@ -1,0 +1,456 @@
+@let s = shift();
+
+@if (loading() && !state()) {
+  <div class="center-state"><i class="pi pi-spin pi-spinner"></i> Memuat kasir…</div>
+} @else if (!s) {
+  <div class="center-state">
+    <section class="open-card">
+      <span class="open-icon"><i class="pi pi-lock-open"></i></span>
+      <h2>Buka shift kasir</h2>
+      <p>Hitung uang modal di laci, lalu isi jumlahnya. Penjualan hanya bisa dilakukan saat shift terbuka.</p>
+      @if (auth.can('SHIFT_MANAGE')) {
+        <label for="openCash">Uang modal awal</label>
+        <p-inputnumber
+          inputId="openCash"
+          [(ngModel)]="openCash"
+          mode="currency"
+          currency="IDR"
+          locale="id-ID"
+          [minFractionDigits]="0"
+          [min]="0"
+          [autofocus]="true"
+          (keydown.enter)="openShift()"
+          styleClass="w-full"
+          inputStyleClass="w-full"
+        />
+        <p-button label="Buka shift" icon="pi pi-play" styleClass="w-full" (onClick)="openShift()" />
+      } @else {
+        <p class="muted">Minta kasir atau pemilik untuk membuka shift.</p>
+      }
+    </section>
+  </div>
+} @else {
+  <div class="pos">
+    <!-- ─── Kiri: pencarian & keranjang ─────────────────────────── -->
+    <section class="cart-panel">
+      <header class="bar">
+        <div class="shift-chip">
+          <span class="dot"></span>
+          <span>
+            Shift {{ s.isMine ? 'Anda' : s.openedBy }} · sejak {{ s.openedAt | dateTime }}
+            @if (s.figures; as f) {
+              · {{ f.saleCount }} nota · {{ f.salesTotal | rupiah }}
+            }
+          </span>
+        </div>
+        <span class="spacer"></span>
+        <p-button
+          [label]="'Resep' + (state()!.prescriptionsReady ? ' (' + state()!.prescriptionsReady + ')' : '')"
+          icon="pi pi-file-edit"
+          severity="secondary"
+          [outlined]="true"
+          size="small"
+          (onClick)="openRxList()"
+        >
+        </p-button>
+        <p-button label="Riwayat" icon="pi pi-history" severity="secondary" [outlined]="true" size="small" (onClick)="historyOpen.set(true)" />
+        @if (auth.can('SHIFT_MANAGE')) {
+          <p-button label="Tutup shift" icon="pi pi-power-off" severity="secondary" [text]="true" size="small" (onClick)="startClose()" />
+        }
+      </header>
+
+      <div class="search">
+        <i class="pi pi-search"></i>
+        <input
+          #searchInput
+          type="search"
+          class="search-input"
+          placeholder="Scan barcode atau ketik nama / kode obat, lalu Enter"
+          [(ngModel)]="q"
+          (ngModelChange)="searchChanged()"
+          (keydown)="searchKey($event)"
+          [disabled]="!!rx()"
+          autocomplete="off"
+        />
+        @if (searching()) {
+          <i class="pi pi-spin pi-spinner"></i>
+        }
+        <kbd>F3</kbd>
+        @if (results().length) {
+          <ul class="results" role="listbox">
+            @for (p of results(); track p.productId; let i = $index) {
+              <li
+                role="option"
+                [class.active]="i === activeResult()"
+                [class.out]="p.sellableBase <= 0"
+                [attr.aria-selected]="i === activeResult()"
+                (mousedown)="$event.preventDefault(); add(p, p.matchedUnitId)"
+                (mouseenter)="activeResult.set(i)"
+              >
+                <span class="r-main">
+                  <strong>{{ p.name }}</strong>
+                  <small>{{ p.code }}{{ p.genericName ? ' · ' + p.genericName : '' }}</small>
+                </span>
+                <span class="r-side">
+                  <p-tag [value]="drugClass(p.drugClass).label" [severity]="drugClass(p.drugClass).severity" />
+                  @if (defaultUnit(p); as u) {
+                    <span class="price">{{ u.sellPrice | rupiah }}<small>/{{ u.unitName }}</small></span>
+                  }
+                  <span class="stock" [class.zero]="p.sellableBase <= 0">{{ p.sellableBase <= 0 ? 'Stok habis' : 'stok ' + p.sellableBase + ' ' + p.baseUnitName }}</span>
+                </span>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+
+      @if (rx(); as r) {
+        <div class="rx-banner">
+          <i class="pi pi-file-check"></i>
+          <div>
+            <strong>Membayar resep {{ r.number }}</strong>
+            <small>No. {{ r.prescriptionNumber }} · {{ r.patientName }} · {{ r.doctorName }}</small>
+          </div>
+          <span class="spacer"></span>
+          <p-button label="Batal" icon="pi pi-times" severity="secondary" [text]="true" size="small" (onClick)="clearCart()" />
+        </div>
+        @for (p of r.problems; track p) {
+          <p class="problem"><i class="pi pi-exclamation-triangle"></i>{{ p }}</p>
+        }
+        <div class="cart">
+          <table>
+            <thead>
+              <tr><th>Item</th><th class="num">Jumlah</th><th class="num">Harga</th><th class="num">Subtotal</th></tr>
+            </thead>
+            <tbody>
+              @for (l of r.lines; track $index) {
+                <tr>
+                  <td>
+                    <strong>{{ l.description }}</strong>
+                    @for (c of l.components; track $index) {
+                      <small class="block">· {{ c.description }} {{ c.qty }} {{ c.unitName }} ({{ c.lineTotal | rupiah }})</small>
+                    }
+                  </td>
+                  <td class="num">{{ l.qty }} {{ l.kind === 'COMPOUND' ? 'racikan' : (l.unitName ?? '') }}</td>
+                  <td class="num">{{ l.kind === 'COMPOUND' ? '' : (l.unitPrice | rupiah) }}</td>
+                  <td class="num strong">{{ l.lineTotal | rupiah }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="cart">
+          @if (lines().length) {
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 2rem">#</th>
+                  <th>Obat</th>
+                  <th style="width: 7rem">Satuan</th>
+                  <th style="width: 7.5rem" class="center">Jumlah</th>
+                  <th style="width: 6.5rem" class="num">Harga</th>
+                  <th style="width: 6.5rem" class="num">Diskon</th>
+                  <th style="width: 7rem" class="num">Subtotal</th>
+                  <th style="width: 2.5rem"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (l of lines(); track l.key; let i = $index) {
+                  @let u = unitOf(l);
+                  @let pr = priceFor(u, l.qty);
+                  <tr>
+                    <td class="muted">{{ i + 1 }}</td>
+                    <td>
+                      <div class="name">
+                        <strong>{{ l.product.name }}</strong>
+                        @if (l.product.drugClass !== 'FREE') {
+                          <p-tag [value]="drugClass(l.product.drugClass).label" [severity]="drugClass(l.product.drugClass).severity" />
+                        }
+                      </div>
+                      @if (shortStock().has(l.product.productId)) {
+                        <small class="warn-text"><i class="pi pi-exclamation-triangle"></i> stok tersedia {{ l.product.sellableBase }} {{ l.product.baseUnitName }}</small>
+                      } @else {
+                        <small class="muted">{{ l.product.code }}</small>
+                      }
+                    </td>
+                    <td>
+                      @if (l.product.units.length > 1) {
+                        <p-select
+                          [options]="unitChoices().get(l.key) ?? l.product.units"
+                          optionLabel="unitName"
+                          optionValue="productUnitId"
+                          optionDisabled="disabled"
+                          [ngModel]="l.productUnitId"
+                          (ngModelChange)="updateLine(l.key, { productUnitId: $event, discount: 0 })"
+                          size="small"
+                          appendTo="body"
+                          styleClass="w-full"
+                        />
+                      } @else {
+                        {{ u.unitName }}
+                      }
+                    </td>
+                    <td>
+                      <p-inputnumber
+                        [ngModel]="l.qty"
+                        (ngModelChange)="updateLine(l.key, { qty: $event })"
+                        [showButtons]="true"
+                        buttonLayout="horizontal"
+                        [min]="1"
+                        [max]="maxQtyOf(l)"
+                        size="small"
+                        styleClass="qty"
+                        inputStyleClass="qty-input"
+                        incrementButtonIcon="pi pi-plus"
+                        decrementButtonIcon="pi pi-minus"
+                      />
+                    </td>
+                    <td class="num">
+                      {{ pr.price | rupiah }}
+                      @if (pr.tierMinQty) {
+                        <small class="tier block">grosir ≥ {{ pr.tierMinQty }}</small>
+                      }
+                    </td>
+                    <td>
+                      <p-inputnumber
+                        [ngModel]="l.discount"
+                        (ngModelChange)="updateLine(l.key, { discount: $event })"
+                        mode="decimal"
+                        locale="id-ID"
+                        [min]="0"
+                        size="small"
+                        styleClass="disc"
+                        inputStyleClass="disc-input"
+                        placeholder="0"
+                      />
+                    </td>
+                    <td class="num strong">{{ lineTotal(l) | rupiah }}</td>
+                    <td>
+                      <p-button icon="pi pi-trash" severity="danger" [text]="true" size="small" ariaLabel="Hapus" (onClick)="removeLine(l.key)" />
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          } @else {
+            <div class="empty-cart">
+              <i class="pi pi-shopping-cart"></i>
+              <strong>Keranjang kosong</strong>
+              <span>Scan barcode atau cari obat. Tekan <kbd>F6</kbd> untuk membayar resep.</span>
+            </div>
+          }
+        </div>
+      }
+
+      <footer class="keys">
+        <span><kbd>F3</kbd> Cari</span>
+        <span><kbd>F4</kbd> Uang diterima</span>
+        <span><kbd>F6</kbd> Resep</span>
+        <span><kbd>F7</kbd> Riwayat</span>
+        <span><kbd>F9</kbd> Bayar</span>
+        <span class="spacer"></span>
+        @if (itemCount()) {
+          <p-button label="Kosongkan" icon="pi pi-times" severity="secondary" [text]="true" size="small" (onClick)="clearCart()" />
+        }
+      </footer>
+    </section>
+
+    <!-- ─── Kanan: total & pembayaran ──────────────────────────── -->
+    <aside class="pay-panel">
+      @let t = totals();
+      @let pl = plan();
+      <div class="sum">
+        <div class="sum-row"><span>Subtotal ({{ itemCount() }} item)</span><span>{{ t.subtotal | rupiah }}</span></div>
+        @if (t.discount > 0) {
+          <div class="sum-row"><span>Diskon</span><span>-{{ t.discount | rupiah }}</span></div>
+        }
+        @if (t.rounding !== 0) {
+          <div class="sum-row"><span>Pembulatan</span><span>{{ t.rounding | rupiah }}</span></div>
+        }
+        <div class="grand">
+          <span>Total</span>
+          <strong>{{ t.total | rupiah }}</strong>
+        </div>
+      </div>
+
+      <div class="pay">
+        <h3>Non-tunai <small>(opsional, bisa split dengan tunai)</small></h3>
+        <div class="noncash">
+          <p-select [options]="nonCashMethods" optionLabel="label" optionValue="value" [(ngModel)]="nonCashMethod" size="small" />
+          <p-inputnumber
+            [ngModel]="nonCash()"
+            (ngModelChange)="nonCash.set($event)"
+            mode="decimal"
+            locale="id-ID"
+            [min]="0"
+            placeholder="Rp0"
+            size="small"
+            styleClass="grow"
+            inputStyleClass="w-full"
+          />
+          <p-button label="Semua" severity="secondary" [outlined]="true" size="small" (onClick)="nonCash.set(t.total); tendered.set(null)" />
+        </div>
+        @if (pl.nonCash > 0) {
+          <input pInputText [(ngModel)]="reference" placeholder="Kode approval / referensi (opsional)" maxlength="64" class="w-full ref" />
+        }
+
+        @if (pl.cashPart > 0) {
+          <h3>Tunai {{ pl.cashPart | rupiah }}</h3>
+          <div #tenderedInput>
+            <p-inputnumber
+              [ngModel]="tendered()"
+              (ngModelChange)="tendered.set($event)"
+              mode="decimal"
+              locale="id-ID"
+              [min]="0"
+              [placeholder]="'Uang diterima (kosong = uang pas)'"
+              (keydown.enter)="pay()"
+              styleClass="w-full"
+              inputStyleClass="w-full tendered"
+            />
+          </div>
+          <div class="quick">
+            @for (v of [pl.cashPart, 20000, 50000, 100000]; track $index) {
+              @if (v >= pl.cashPart) {
+                <button type="button" (click)="tendered.set(v)">{{ v === pl.cashPart ? 'Uang pas' : (v | rupiah) }}</button>
+              }
+            }
+          </div>
+        }
+
+        <div class="change" [class.short]="pl.short > 0">
+          @if (pl.short > 0) {
+            <span>Kurang</span><strong>{{ pl.short | rupiah }}</strong>
+          } @else {
+            <span>Kembalian</span><strong>{{ pl.change | rupiah }}</strong>
+          }
+        </div>
+
+        @if (needsHardPin()) {
+          <p class="auth-note"><i class="pi pi-shield"></i>Ada obat keras: butuh PIN apoteker saat bayar.</p>
+        }
+        @if (needsDiscountPin()) {
+          <p class="auth-note"><i class="pi pi-shield"></i>Diskon di atas batas: butuh PIN Pemilik/Apoteker.</p>
+        }
+
+        <p-button
+          styleClass="pay-btn w-full"
+          [loading]="paying()"
+          [disabled]="!canPay()"
+          (onClick)="pay()"
+        >
+          <span class="pay-label"><i class="pi pi-check-circle"></i> Bayar <kbd>F9</kbd></span>
+        </p-button>
+      </div>
+    </aside>
+  </div>
+}
+
+<!-- ─── Struk setelah bayar ───────────────────────────────────────── -->
+<p-dialog
+  [visible]="!!receipt()"
+  (visibleChange)="!$event && newTransaction()"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [style]="{ width: '420px' }"
+  header="Pembayaran berhasil"
+>
+  @if (receipt(); as r) {
+    @if (r.replayed) {
+      <p class="replayed"><i class="pi pi-info-circle"></i> Nota ini sudah tersimpan sebelumnya; tidak ada transaksi ganda.</p>
+    }
+    @if (r.changeAmount > 0) {
+      <div class="change-big">Kembalian <strong>{{ r.changeAmount | rupiah }}</strong></div>
+    }
+    <app-receipt [sale]="r" />
+  }
+  <ng-template #footer>
+    <p-button label="Transaksi baru" icon="pi pi-plus" (onClick)="newTransaction()" [autofocus]="true">
+    </p-button>
+  </ng-template>
+</p-dialog>
+
+<!-- ─── PIN otorisasi ─────────────────────────────────────────────── -->
+<p-dialog [visible]="!!pin()" [modal]="true" [closable]="false" [draggable]="false" [style]="{ width: '360px' }" [header]="pin()?.title ?? ''">
+  <p class="pin-msg">{{ pin()?.message }}</p>
+  <input
+    pInputText
+    type="password"
+    inputmode="numeric"
+    maxlength="6"
+    class="w-full pin-input"
+    placeholder="PIN"
+    [(ngModel)]="pinValue"
+    (keydown.enter)="submitPin(true)"
+    (keydown.escape)="submitPin(false)"
+    [autofocus]="true"
+    autocomplete="off"
+  />
+  <ng-template #footer>
+    <p-button label="Batal" severity="secondary" [outlined]="true" (onClick)="submitPin(false)" />
+    <p-button label="Otorisasi" icon="pi pi-shield" (onClick)="submitPin(true)" />
+  </ng-template>
+</p-dialog>
+
+<!-- ─── Pilih resep ───────────────────────────────────────────────── -->
+<p-dialog header="Resep siap dibayar" [(visible)]="rxListOpen" [modal]="true" [draggable]="false" [style]="{ width: '640px' }">
+  @for (p of rxList(); track p.id) {
+    <button type="button" class="rx-row" (click)="pickRx(p)">
+      <span>
+        <strong class="mono">{{ p.number }}</strong>
+        <small class="block">No. {{ p.prescriptionNumber }} · {{ p.doctorName }}</small>
+      </span>
+      <span class="rx-patient">{{ p.patientName }}<small class="block">{{ p.itemCount }} item · divalidasi {{ p.screenedAt | dateTime }}</small></span>
+      <i class="pi pi-chevron-right"></i>
+    </button>
+  } @empty {
+    <p class="muted center">Tidak ada resep yang menunggu pembayaran.</p>
+  }
+</p-dialog>
+
+<!-- ─── Tutup shift ───────────────────────────────────────────────── -->
+<p-dialog header="Tutup shift" [(visible)]="closeOpen" [modal]="true" [draggable]="false" [style]="{ width: '440px' }">
+  @if (shift(); as sh) {
+    @if (sh.figures; as f) {
+      <dl class="close-facts">
+        <div><dt>Modal awal</dt><dd>{{ f.openingCash | rupiah }}</dd></div>
+        <div><dt>Penjualan ({{ f.saleCount }} nota)</dt><dd>{{ f.salesTotal | rupiah }}</dd></div>
+        @for (m of f.byMethod; track m.method) {
+          <div class="sub"><dt>{{ m.method === 'CASH' ? 'Tunai' : m.method === 'QRIS' ? 'QRIS' : 'Debit' }}</dt><dd>{{ m.amount | rupiah }}</dd></div>
+        }
+        @if (f.voidCount > 0) {
+          <div class="sub"><dt>Nota batal</dt><dd>{{ f.voidCount }}</dd></div>
+        }
+        <div class="strong"><dt>Tunai seharusnya di laci</dt><dd>{{ f.expectedCash | rupiah }}</dd></div>
+      </dl>
+    }
+    <label for="counted" class="lbl">Uang fisik di laci (hasil hitung)</label>
+    <p-inputnumber
+      inputId="counted"
+      [(ngModel)]="closeCounted"
+      mode="currency"
+      currency="IDR"
+      locale="id-ID"
+      [minFractionDigits]="0"
+      [min]="0"
+      [autofocus]="true"
+      styleClass="w-full"
+      inputStyleClass="w-full"
+    />
+    @if (closeDifference(); as d) {
+      <p class="diff" [class.minus]="d < 0">Selisih {{ d | rupiah }}</p>
+    } @else if (closeCounted != null && sh.figures) {
+      <p class="diff ok">Sesuai, tidak ada selisih</p>
+    }
+    <label for="closeNote" class="lbl">Catatan (opsional)</label>
+    <input pInputText id="closeNote" [(ngModel)]="closeNote" class="w-full" placeholder="Misal: selisih karena uang receh" />
+  }
+  <ng-template #footer>
+    <p-button label="Batal" severity="secondary" [outlined]="true" (onClick)="closeOpen.set(false)" />
+    <p-button label="Tutup shift" icon="pi pi-power-off" [disabled]="closeCounted == null" (onClick)="closeShift()" />
+  </ng-template>
+</p-dialog>
+
+<app-sales-history [(open)]="historyOpen" (changed)="onHistoryChanged()" />

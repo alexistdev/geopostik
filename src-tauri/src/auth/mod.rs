@@ -8,7 +8,9 @@ mod repo;
 mod service;
 
 pub use model::SessionUser;
-pub(crate) use service::{required, session_for, validate_password, validate_pin, validate_username};
+pub(crate) use service::{
+    Authorizer, authorize_pin, required, session_for, validate_password, validate_pin, validate_username,
+};
 pub use permission::{AccessSettings, Permission, Role, effective_permissions};
 
 /// Login tanpa lewat command Tauri, untuk test modul lain.
