@@ -6,6 +6,10 @@
 /out-tsc
 /bazel-out
 
+# Installer hasil build (dibagikan lewat artifact CI / GitHub Releases)
+/msi
+/nsis
+
 # Node
 /node_modules
 npm-debug.log
