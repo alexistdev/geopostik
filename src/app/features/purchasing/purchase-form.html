@@ -1,0 +1,402 @@
+@if (loaded()) {
+  @let d = detail();
+  @let t = totals();
+  <div class="head-card">
+    <a class="back" href="" (click)="$event.preventDefault(); discard()"><i class="pi pi-arrow-left"></i>Daftar faktur</a>
+    <div class="head-main">
+      <span class="head-icon"><i class="pi pi-truck"></i></span>
+      <div class="head-title">
+        <div class="title-row">
+          <h2>{{ d?.number ?? 'Faktur baru' }}</h2>
+          @if (d) {
+            @let st = statusInfo(d.status);
+            <p-tag [value]="st.label" [severity]="st.severity" [rounded]="true" />
+          }
+          @if (dirty()) {
+            <span class="unsaved"><i class="pi pi-circle-fill"></i>Belum disimpan</span>
+          }
+        </div>
+        <div class="meta">
+          @if (d) {
+            <span><i class="pi pi-user"></i>Dibuat {{ d.createdBy ?? '–' }} · {{ d.createdAt | dateTime }}</span>
+            @if (d.postedAt) {
+              <span><i class="pi pi-check-circle"></i>Diposting {{ d.postedBy ?? '–' }} · {{ d.postedAt | dateTime }}</span>
+            }
+            @if (d.voidedAt) {
+              <span class="void-meta"><i class="pi pi-ban"></i>Dibatalkan {{ d.voidedBy ?? '–' }} · {{ d.voidedAt | dateTime }}
+                @if (d.voidReason) {
+                  — {{ d.voidReason }}
+                }
+              </span>
+            }
+          } @else {
+            <span><i class="pi pi-info-circle"></i>Isi sesuai faktur dari supplier. Stok bertambah setelah diposting.</span>
+          }
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <small>Total faktur</small>
+          <strong>{{ (d && d.status !== 'DRAFT' ? d.grandTotal : t.grandTotal) | rupiah }}</strong>
+        </div>
+        @if (d?.outstanding != null) {
+          <div class="stat" [class.neg]="d!.outstanding! > 0" [class.pos]="d!.outstanding! <= 0">
+            <small>Sisa hutang</small>
+            <strong>{{ d!.outstanding! > 0 ? (d!.outstanding | rupiah) : 'Lunas' }}</strong>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="head-actions">
+      @if (editable) {
+        @if (d) {
+          <p-button label="Batalkan draft" icon="pi pi-times" severity="danger" [text]="true" (onClick)="openVoid()" />
+        }
+        <span class="spacer"></span>
+        <span class="kbd-hint">Ctrl+S simpan</span>
+        <p-button label="Simpan draft" icon="pi pi-save" severity="secondary" [outlined]="true" [loading]="busy()" (onClick)="save()" />
+        <p-button label="Posting" icon="pi pi-check" [disabled]="!lines.length" [loading]="busy()" (onClick)="openPost()" pTooltip="Stok bertambah dan faktur tidak bisa diubah lagi" tooltipPosition="top" />
+      } @else if (d?.status === 'POSTED') {
+        <span class="waiting done"><i class="pi pi-check-circle"></i>Stok sudah bertambah dan tercatat di kartu stok.</span>
+        <span class="spacer"></span>
+        @if (d!.paymentType === 'CREDIT' && canDebt) {
+          <a routerLink="/pembelian/hutang" class="p-button p-button-text p-button-secondary link-btn"><i class="pi pi-credit-card"></i>Hutang supplier</a>
+        }
+        @if (canVoidPosted) {
+          <p-button label="Batalkan faktur" icon="pi pi-ban" severity="danger" [text]="true" (onClick)="openVoid()" />
+        }
+      } @else {
+        <span class="waiting"><i class="pi pi-ban"></i>Faktur dibatalkan; tidak memengaruhi stok maupun hutang.</span>
+      }
+    </div>
+  </div>
+
+  <!-- ─── Data faktur ─── -->
+  <section class="panel">
+    <div class="form-grid" [class.readonly]="!editable">
+      <div class="field supplier-field">
+        <label for="pSupplier">Supplier <span class="req">*</span></label>
+        <div class="with-button">
+          <p-select
+            inputId="pSupplier"
+            [options]="supplierOptions()"
+            optionLabel="name"
+            optionValue="id"
+            [(ngModel)]="header.supplierId"
+            (onChange)="supplierChanged()"
+            placeholder="Pilih supplier"
+            [filter]="true"
+            filterBy="name,code"
+            appendTo="body"
+            styleClass="w-full"
+            [disabled]="!editable"
+          >
+            <ng-template #item let-s>
+              <span class="mono muted">{{ s.code }}</span>&nbsp;{{ s.name }}
+            </ng-template>
+          </p-select>
+          @if (editable) {
+            <p-button icon="pi pi-plus" severity="secondary" [outlined]="true" pTooltip="Supplier baru" tooltipPosition="top" ariaLabel="Supplier baru" (onClick)="supplierDialog = { name: '' }" />
+          }
+        </div>
+      </div>
+      <div class="field">
+        <label for="pInvoice">No. faktur <span class="req">*</span></label>
+        <input pInputText id="pInvoice" [(ngModel)]="header.invoiceNumber" placeholder="Sesuai faktur PBF" [disabled]="!editable" />
+      </div>
+      <div class="field">
+        <label for="pInvDate">Tgl faktur <span class="req">*</span></label>
+        <input pInputText id="pInvDate" type="date" [(ngModel)]="header.invoiceDate" (change)="updateDueDate()" [max]="defaults()?.today ?? ''" [disabled]="!editable" />
+      </div>
+      <div class="field">
+        <label for="pRecDate">Tgl terima <span class="req">*</span></label>
+        <input pInputText id="pRecDate" type="date" [(ngModel)]="header.receivedDate" [max]="defaults()?.today ?? ''" [disabled]="!editable" />
+      </div>
+
+      <div class="field">
+        <label>Pembayaran</label>
+        <p-selectbutton
+          [options]="paymentTypes"
+          optionLabel="label"
+          optionValue="value"
+          [(ngModel)]="header.paymentType"
+          (onChange)="updateDueDate()"
+          [allowEmpty]="false"
+          [disabled]="!editable"
+        />
+      </div>
+      <div class="field">
+        <label for="pDue">Jatuh tempo @if (header.paymentType === 'CREDIT') {<span class="req">*</span>}</label>
+        <input pInputText id="pDue" type="date" [(ngModel)]="header.dueDate" [min]="header.invoiceDate" [disabled]="!editable || header.paymentType === 'CASH'" />
+      </div>
+      <div class="field">
+        <label for="pTax">PPN</label>
+        <p-select inputId="pTax" [options]="taxModes" optionLabel="label" optionValue="value" [(ngModel)]="header.taxMode" appendTo="body" styleClass="w-full" [disabled]="!editable" />
+      </div>
+      <div class="field">
+        <label for="pRate">Tarif PPN</label>
+        <p-inputnumber inputId="pRate" [(ngModel)]="header.taxRate" suffix="%" [min]="0" [max]="100" [maxFractionDigits]="2" locale="id-ID" [disabled]="!editable || header.taxMode === 'NONE'" />
+      </div>
+
+      <div class="field">
+        <label for="pDisc">Diskon faktur</label>
+        <p-inputnumber inputId="pDisc" [(ngModel)]="header.extraDiscount" prefix="Rp" locale="id-ID" [min]="0" placeholder="Rp0" [disabled]="!editable" />
+      </div>
+      <div class="field note-field">
+        <label for="pNote">Catatan</label>
+        <input pInputText id="pNote" [(ngModel)]="header.note" placeholder="Opsional" [disabled]="!editable" />
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Baris obat ─── -->
+  <section class="data-card items-card">
+    <div class="toolbar">
+      @if (editable) {
+        <p-autocomplete
+          [(ngModel)]="search"
+          [suggestions]="suggestions()"
+          (completeMethod)="searchProducts($event)"
+          (onSelect)="productSelected($event)"
+          optionLabel="name"
+          [delay]="200"
+          [minLength]="1"
+          placeholder="Tambah obat: cari nama / kode, atau scan barcode"
+          appendTo="body"
+          styleClass="product-search"
+          inputStyleClass="product-search-input"
+        >
+          <ng-template #item let-p>
+            <div class="suggest">
+              <span class="mono muted">{{ p.code }}</span>
+              <span class="strong">{{ p.name }}</span>
+              @if (p.genericName) {
+                <small>{{ p.genericName }}</small>
+              }
+              <span class="spacer"></span>
+              <small>{{ p.units.map(unitLabel).join(' · ') }}</small>
+            </div>
+          </ng-template>
+        </p-autocomplete>
+      }
+      <span class="hint">
+        <i class="pi pi-info-circle"></i>
+        @if (editable) {
+          Jumlah & harga per satuan beli sesuai faktur; bonus tanpa harga ikut menambah stok.
+        } @else {
+          {{ lines.length }} baris
+        }
+      </span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="lines" [class.readonly]="!editable">
+        <thead>
+          <tr>
+            <th class="no">#</th>
+            <th class="product">Obat</th>
+            <th class="unit">Satuan</th>
+            <th class="n">Jumlah</th>
+            <th class="n">Bonus</th>
+            <th class="price">Harga / satuan</th>
+            <th class="pct">Disk 1</th>
+            <th class="pct">Disk 2</th>
+            <th class="batch">No. batch</th>
+            <th class="date">ED</th>
+            <th class="money">Subtotal</th>
+            @if (viewCost) {
+              <th class="money">HPP / sat. dasar</th>
+            }
+            @if (editable) {
+              <th class="act"></th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (l of lines; track l.key; let i = $index) {
+            @let es = expiry(l);
+            @let cost = lineCost(i, t);
+            <tr>
+              <td class="no">{{ i + 1 }}</td>
+              <td class="product">
+                <div class="name-text">
+                  <span class="strong">{{ l.name }}</span>
+                  <small>
+                    <span class="mono">{{ l.code }}</span>
+                    @if (l.drugClass === 'NARCOTIC' || l.drugClass === 'PSYCHOTROPIC' || l.drugClass === 'HARD') {
+                      · <span class="class-tag" [class]="l.drugClass">{{ drugClassInfo(l.drugClass).label }}</span>
+                    }
+                    · masuk {{ qtyBase(l) }} {{ l.baseUnitName }}
+                  </small>
+                </div>
+              </td>
+              @if (editable) {
+                <td class="unit">
+                  <select class="cell-select" [(ngModel)]="l.productUnitId" [attr.aria-label]="'Satuan ' + l.name">
+                    @for (u of l.units; track u.productUnitId) {
+                      <option [ngValue]="u.productUnitId">{{ u.unitName }}{{ u.conversion > 1 ? ' (' + u.conversion + ')' : '' }}</option>
+                    }
+                  </select>
+                </td>
+                <td class="n">
+                  <p-inputnumber [id]="'qty-' + l.key" [(ngModel)]="l.qty" [min]="1" [useGrouping]="false" inputStyleClass="cell-input" />
+                </td>
+                <td class="n">
+                  <p-inputnumber [(ngModel)]="l.bonusQty" [min]="0" [useGrouping]="false" placeholder="–" inputStyleClass="cell-input" />
+                </td>
+                <td class="price">
+                  <p-inputnumber [(ngModel)]="l.unitPrice" [min]="0" locale="id-ID" placeholder="Rp" inputStyleClass="cell-input" />
+                </td>
+                <td class="pct">
+                  <p-inputnumber [(ngModel)]="l.disc1" [min]="0" [max]="100" [maxFractionDigits]="2" locale="id-ID" suffix="%" placeholder="–" inputStyleClass="cell-input" />
+                </td>
+                <td class="pct">
+                  <p-inputnumber [(ngModel)]="l.disc2" [min]="0" [max]="100" [maxFractionDigits]="2" locale="id-ID" suffix="%" placeholder="–" inputStyleClass="cell-input" />
+                </td>
+                <td class="batch">
+                  <input pInputText class="cell-input text" [id]="'batch-' + l.key" [(ngModel)]="l.batchNumber" placeholder="Wajib" />
+                </td>
+                <td class="date">
+                  <input pInputText type="date" class="cell-input text" [class]="es" [(ngModel)]="l.expiryDate" />
+                </td>
+              } @else {
+                <td class="unit">{{ unitName(l) }}</td>
+                <td class="n">{{ l.qty }}</td>
+                <td class="n">{{ l.bonusQty || '–' }}</td>
+                <td class="price">{{ l.unitPrice | rupiah }}</td>
+                <td class="pct">{{ l.disc1 ? l.disc1 + '%' : '–' }}</td>
+                <td class="pct">{{ l.disc2 ? l.disc2 + '%' : '–' }}</td>
+                <td class="batch mono">{{ l.batchNumber }}</td>
+                <td class="date"><span class="ed" [class]="es">{{ formatDate(l.expiryDate) }}</span></td>
+              }
+              <td class="money strong">{{ lineTotal(l) | rupiah }}</td>
+              @if (viewCost) {
+                <td class="money">
+                  {{ cost | costX100 }}
+                  @if (editable && cost != null && l.lastCostX100 != null && cost > l.lastCostX100) {
+                    <i class="pi pi-arrow-up cost-up" [pTooltip]="'Naik dari HPP acuan ' + (l.lastCostX100 | costX100)" tooltipPosition="left"></i>
+                  }
+                </td>
+              }
+              @if (editable) {
+                <td class="act">
+                  <p-button icon="pi pi-clone" [text]="true" [rounded]="true" size="small" severity="secondary" pTooltip="Batch lain obat ini" tooltipPosition="left" ariaLabel="Batch lain" (onClick)="duplicateLine(l)" />
+                  <p-button icon="pi pi-trash" [text]="true" [rounded]="true" size="small" severity="danger" pTooltip="Hapus baris" tooltipPosition="left" ariaLabel="Hapus baris" (onClick)="removeLine(l)" />
+                </td>
+              }
+            </tr>
+          } @empty {
+            <tr class="empty-row">
+              <td [attr.colspan]="13">
+                <i class="pi pi-inbox empty-icon"></i>
+                <div>{{ editable ? 'Cari obat di atas untuk menambah baris faktur.' : 'Faktur tidak berisi obat.' }}</div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="summary">
+      <div class="tax-note">
+        @if (viewCost) {
+          <i class="pi pi-calculator"></i>
+          HPP = nilai baris − diskon faktur (proporsional)
+          {{ (d && d.status !== 'DRAFT' ? d.taxInCost : !defaults()?.isPkp) ? '+ PPN (apotek non-PKP)' : 'tanpa PPN (apotek PKP)' }},
+          dibagi jumlah + bonus dalam satuan dasar.
+        }
+      </div>
+      <dl>
+        <dt>Subtotal</dt>
+        <dd>{{ t.subtotal | rupiah }}</dd>
+        <dt>Diskon</dt>
+        <dd>{{ t.discountTotal ? '−' : '' }}{{ t.discountTotal | rupiah }}</dd>
+        <dt>PPN{{ header.taxMode === 'INCLUDED' ? ' (termasuk)' : '' }}</dt>
+        <dd>{{ t.taxTotal | rupiah }}</dd>
+        <dt class="grand">Total</dt>
+        <dd class="grand">{{ t.grandTotal | rupiah }}</dd>
+      </dl>
+    </div>
+  </section>
+
+  @if (d?.payments?.length) {
+    <section class="panel payments">
+      <h3><i class="pi pi-credit-card"></i>Pembayaran hutang</h3>
+      <table class="mini">
+        @for (p of d!.payments!; track p.id) {
+          <tr [class.voided]="p.voidedAt">
+            <td class="mono">{{ p.number }}</td>
+            <td>{{ formatDate(p.paymentDate) }}</td>
+            <td>{{ methodLabel(p.method) }}{{ p.reference ? ' · ' + p.reference : '' }}</td>
+            <td class="money strong">{{ p.amount | rupiah }}</td>
+            <td class="muted">{{ p.voidedAt ? 'Dibatalkan: ' + (p.voidReason ?? '') : '' }}</td>
+          </tr>
+        }
+      </table>
+    </section>
+  }
+
+  @if (posting; as p) {
+    <p-dialog [visible]="true" (visibleChange)="posting = null" [modal]="true" [draggable]="false" [style]="{ width: '500px' }" styleClass="master-dialog">
+      <ng-template #header>
+        <div class="dlg-head">
+          <span class="dlg-icon"><i class="pi pi-check"></i></span>
+          <div class="dlg-title">
+            <span class="dlg-name">Posting faktur?</span>
+            <span class="dlg-meta">{{ header.invoiceNumber || 'Tanpa nomor' }} · {{ lines.length }} baris · {{ t.grandTotal | rupiah }}</span>
+          </div>
+        </div>
+      </ng-template>
+      <p class="dlg-text">
+        Stok setiap baris masuk sebagai batch baru dan tercatat di kartu stok. Setelah diposting faktur tidak bisa diubah;
+        kesalahan diperbaiki dengan membatalkan faktur (selama stoknya belum terpakai).
+      </p>
+      <label class="check-row">
+        <p-checkbox [(ngModel)]="p.updatePrices" [binary]="true" inputId="updPrices" />
+        <span>
+          <strong>Perbarui HPP acuan & harga jual otomatis</strong>
+          <small>Harga satuan/tier bermode Otomatis dihitung ulang dari HPP faktur ini dan margin. Harga Manual tidak berubah.</small>
+        </span>
+      </label>
+      <ng-template #footer>
+        <p-button label="Batal" severity="secondary" [outlined]="true" (onClick)="posting = null" />
+        <p-button label="Posting" icon="pi pi-check" [loading]="busy()" (onClick)="post()" />
+      </ng-template>
+    </p-dialog>
+  }
+
+  @if (voiding; as v) {
+    <p-dialog [visible]="true" (visibleChange)="voiding = null" [modal]="true" [draggable]="false" [style]="{ width: '460px' }" styleClass="master-dialog">
+      <ng-template #header>
+        <div class="dlg-head">
+          <span class="dlg-icon"><i class="pi pi-ban"></i></span>
+          <div class="dlg-title">
+            <span class="dlg-name">Batalkan {{ d?.number }}?</span>
+            <span class="dlg-meta">
+              @if (d?.status === 'POSTED') {
+                Stok faktur ini ditarik kembali. Hanya bisa bila stoknya belum terjual/terpakai.
+              } @else {
+                Draft tidak dihapus, hanya ditandai batal.
+              }
+            </span>
+          </div>
+        </div>
+      </ng-template>
+      <div class="field">
+        <label for="vReason">Alasan @if (d?.status === 'POSTED') {<span class="req">*</span>}</label>
+        <input pInputText id="vReason" [(ngModel)]="v.reason" [placeholder]="d?.status === 'POSTED' ? 'Misal: salah input jumlah' : 'Opsional'" autofocus (keydown.enter)="voidPurchase()" />
+      </div>
+      <ng-template #footer>
+        <p-button label="Kembali" severity="secondary" [outlined]="true" (onClick)="voiding = null" />
+        <p-button label="Batalkan faktur" icon="pi pi-ban" severity="danger" [loading]="busy()" (onClick)="voidPurchase()" />
+      </ng-template>
+    </p-dialog>
+  }
+
+  @if (supplierDialog; as sd) {
+    <app-supplier-dialog [initialName]="sd.name" (saved)="supplierSaved($event)" (closed)="supplierDialog = null" />
+  }
+} @else {
+  <div class="loading"><i class="pi pi-spin pi-spinner"></i> Memuat faktur…</div>
+}

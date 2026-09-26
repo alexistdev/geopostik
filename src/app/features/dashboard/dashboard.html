@@ -349,6 +349,7 @@
               <header class="card-head">
                 <h2><i class="pi pi-credit-card"></i>Hutang Supplier</h2>
                 <span class="head-meta">Total <strong>{{ db.outstanding.amount | rupiah }}</strong> · {{ db.outstanding.count }} faktur</span>
+                <a routerLink="/pembelian/hutang" class="head-link">Buka Hutang <i class="pi pi-arrow-right"></i></a>
               </header>
               @if (db.upcoming.length) {
                 <table class="list">

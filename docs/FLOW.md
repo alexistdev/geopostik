@@ -166,7 +166,7 @@ ditempel di rak) dan di-scan untuk mencari atau memilihnya. Setiap baris punya t
 **Nonaktifkan/Aktifkan**, dan **Hapus**. Master data **tidak pernah dihapus permanen**: hapus
 berarti soft delete (disembunyikan, riwayat tetap tersimpan). Hapus hanya bisa bila data belum
 dipakai obat mana pun; bila sudah dipakai, nonaktifkan saja (tidak muncul lagi sebagai pilihan,
-obat lama tetap utuh). Jenis satuan dibuat langsung dari form obat. Menyusul: supplier.
+obat lama tetap utuh). Jenis satuan dibuat langsung dari form obat.
 
 Master **Dokter** (`DOK0001`: nama, No. SIP, spesialis, alamat, telepon) dan **Pasien** (`PSN0001`:
 nama, jenis kelamin, tanggal lahir, alamat, telepon) juga ada di menu Master Data, dikelola oleh
@@ -185,6 +185,31 @@ Barang datang ─► Input faktur (no faktur, tanggal, jatuh tempo, tunai/kredit
              ─► Kredit? ─► masuk daftar hutang supplier ─► pembayaran hutang
              ─► (opsional) update harga jual otomatis berdasarkan margin
 ```
+
+Di aplikasi (menu **Pembelian**, modul `src-tauri/src/purchasing/`):
+- Master **Supplier** (`SUP0001`: nama, alamat, telepon, NPWP, tempo pembayaran hari) ada di Master Data
+  dan bisa ditambah langsung dari form faktur; dikelola oleh yang berhak menerima barang
+  (`PURCHASE_RECEIVE`: pemilik, apoteker, TTK). Tidak bisa dihapus bila sudah punya faktur.
+- Faktur: **Draft** ─► **Diposting** ─► (bila perlu) **Batal**. Nomor internal `PB-YYMM-0001`.
+  Draft boleh disimpan berulang dan tidak mengubah stok. Satu nomor faktur per supplier hanya sekali
+  (faktur batal tidak dihitung, sehingga salah input bisa diinput ulang).
+- Baris faktur: satuan beli (box/strip/tablet dari satuan obat), jumlah, **bonus** (tanpa harga, ikut
+  menambah stok), harga per satuan beli, diskon 1 & 2 (%), no. batch, ED. Diskon faktur (rupiah)
+  dialokasikan proporsional ke baris. ED ≤ tanggal terima ditolak; ED < 90 hari dan harga beli yang naik
+  dari HPP acuan hanya peringatan. Kredit wajib jatuh tempo (otomatis tanggal faktur + tempo supplier).
+- **HPP per batch** = (nilai baris − bagian diskon faktur) ± PPN, dibagi (jumlah + bonus) × isi satuan.
+  Apotek **non-PKP**: PPN masuk HPP; **PKP**: HPP tanpa PPN. Pengaturan PKP dan tarif PPN default ada di
+  **Pengaturan › Pajak pembelian**; faktur menyimpan snapshot saat diposting.
+- **Posting** (satu transaksi): satu batch per baris (sumber `PURCHASE`), kartu stok `PURCHASE`, lalu
+  opsional **perbarui HPP acuan obat & harga jual Otomatis** (harga Manual tidak berubah; peringatan bila
+  di bawah HPP). Faktur yang sudah diposting tidak bisa diubah.
+- **Batal faktur diposting** hanya Pemilik/Apoteker (`TRANSACTION_VOID`), wajib alasan, dan hanya bila
+  stok batch-nya belum dipakai transaksi lain serta belum ada pembayaran hutang: stok ditarik lewat
+  `PURCHASE_VOID`. Bila sudah terjual, gunakan retur ke supplier (menyusul). HPP acuan tidak dikembalikan.
+- HPP hasil hitung dan HPP acuan tidak dikirim ke user tanpa `VIEW_COST` (TTK tetap menginput harga beli).
+- Tab **Hutang Supplier** (hanya `SUPPLIER_DEBT_MANAGE`/pemilik): faktur kredit yang diposting dengan sisa
+  hutang, filter lewat jatuh tempo / ≤ 7 hari / lunas, pembayaran (`BH-YYMM-0001`, tunai/transfer/giro,
+  tidak boleh melebihi sisa) dan batal pembayaran (wajib alasan). Semua aksi tercatat di log audit.
 
 ### E. Penjualan bebas (tanpa resep)
 ```
@@ -334,7 +359,7 @@ persediaan (bila diizinkan pemilik); **Pemilik** = penjualan & laba, hutang, sto
 3. Kasir/POS
 4. Penjualan resep
 5. Obat (daftar & form obat, harga, tier grosir)
-6. Master Data: kategori, rak, pabrik, dokter, pasien (menyusul supplier)
+6. Master Data: kategori, rak, pabrik, dokter, pasien, supplier
 7. Pembelian/penerimaan barang, hutang supplier
 8. Retur (penjualan dan supplier)
 9. Stok: stok awal, kartu stok, stok opname, pemusnahan

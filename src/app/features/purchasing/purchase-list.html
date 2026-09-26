@@ -1,0 +1,116 @@
+<section class="data-card">
+  <div class="toolbar">
+    <p-iconfield>
+      <p-inputicon class="pi pi-search" />
+      <input pInputText type="search" placeholder="Cari nomor, no. faktur, atau supplier" [(ngModel)]="q" (ngModelChange)="searchChanged()" />
+    </p-iconfield>
+    <p-select
+      [options]="suppliers()"
+      optionLabel="name"
+      optionValue="id"
+      [(ngModel)]="supplierId"
+      (onChange)="load(0)"
+      placeholder="Semua supplier"
+      [showClear]="true"
+      [filter]="true"
+      appendTo="body"
+    />
+    <p-select
+      [options]="statuses"
+      optionLabel="label"
+      optionValue="value"
+      [(ngModel)]="status"
+      (onChange)="load(0)"
+      placeholder="Semua status"
+      [showClear]="true"
+      appendTo="body"
+    />
+    <span class="hint"><i class="pi pi-info-circle"></i>Stok bertambah setelah faktur diposting.</span>
+    <p-button label="Faktur Baru" icon="pi pi-plus" (onClick)="open('baru')" />
+  </div>
+
+  <p-table
+    [value]="rows()"
+    [lazy]="true"
+    (onLazyLoad)="pageChanged($event.first ?? 0, $event.rows ?? pageSize)"
+    [paginator]="true"
+    [first]="first()"
+    [rows]="pageSize"
+    [rowsPerPageOptions]="pageSizes"
+    [totalRecords]="total()"
+    [showCurrentPageReport]="true"
+    [currentPageReportTemplate]="pageReport"
+    [loading]="loading()"
+    [rowHover]="true"
+    styleClass="data-table"
+  >
+    <ng-template #header>
+      <tr>
+        <th style="width: 10.5rem">Nomor</th>
+        <th>Supplier / no. faktur</th>
+        <th style="width: 8rem">Tgl terima</th>
+        <th style="width: 10rem">Pembayaran</th>
+        <th style="width: 5rem" class="num">Item</th>
+        <th style="width: 9.5rem" class="num">Total</th>
+        @if (canDebt) {
+          <th style="width: 9.5rem" class="num">Sisa hutang</th>
+        }
+        <th style="width: 8rem">Status</th>
+        <th style="width: 11rem">Dibuat</th>
+        <th style="width: 3.5rem"></th>
+      </tr>
+    </ng-template>
+    <ng-template #body let-p>
+      @let st = statusInfo(p.status);
+      <tr class="clickable" [class.inactive-row]="p.status === 'VOID'" (click)="open(p.id)">
+        <td><span class="cell-code">{{ p.number }}</span></td>
+        <td>
+          <div class="name-text">
+            <span class="strong">{{ p.supplierName }}</span>
+            <small class="mono">{{ p.invoiceNumber }} · {{ formatDate(p.invoiceDate) }}</small>
+          </div>
+        </td>
+        <td>{{ formatDate(p.receivedDate) }}</td>
+        <td>
+          @if (p.paymentType === 'CREDIT') {
+            <div class="name-text">
+              Kredit
+              <small>jatuh tempo {{ formatDate(p.dueDate) }}</small>
+            </div>
+          } @else {
+            Tunai
+          }
+        </td>
+        <td class="num">{{ p.itemCount }}</td>
+        <td class="num strong">{{ p.grandTotal | rupiah }}</td>
+        @if (canDebt) {
+          <td class="num">
+            @if (p.outstanding == null) {
+              <span class="muted">–</span>
+            } @else if (p.outstanding > 0) {
+              <span class="debt">{{ p.outstanding | rupiah }}</span>
+            } @else {
+              <span class="paid"><i class="pi pi-check"></i> Lunas</span>
+            }
+          </td>
+        }
+        <td><p-tag [value]="st.label" [severity]="st.severity" [rounded]="true" /></td>
+        <td>
+          <div class="cell-date">
+            {{ p.createdAt | dateTime }}
+            <small>{{ p.createdBy ?? '–' }}</small>
+          </div>
+        </td>
+        <td><i class="pi pi-chevron-right muted"></i></td>
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr class="empty-row">
+        <td colspan="10">
+          <i class="pi pi-inbox empty-icon"></i>
+          <div>{{ q || status || supplierId ? 'Tidak ada faktur yang cocok.' : 'Belum ada faktur. Klik "Faktur Baru" saat barang datang.' }}</div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>

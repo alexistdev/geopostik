@@ -1,0 +1,37 @@
+@use '../inventory/stock-shared';
+
+.clickable {
+  cursor: pointer;
+}
+
+.cell-code {
+  white-space: nowrap;
+}
+
+.strong {
+  font-weight: 600;
+}
+
+.debt {
+  font-weight: 600;
+  color: var(--p-orange-700);
+}
+
+.paid {
+  font-weight: 600;
+  color: var(--p-emerald-700);
+
+  i {
+    font-size: 0.75rem;
+  }
+}
+
+:host-context(.app-dark) {
+  .debt {
+    color: var(--p-orange-300);
+  }
+
+  .paid {
+    color: var(--p-emerald-300);
+  }
+}

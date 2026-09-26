@@ -1,5 +1,7 @@
 //! Pengaturan aplikasi: key-value dengan nilai JSON.
 
+pub mod commands;
+
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -49,6 +51,27 @@ pub fn price(conn: &Connection) -> AppResult<PriceSettings> {
     Ok(PriceSettings {
         default_margin_bp: get(conn, PRICE_DEFAULT_MARGIN_BP)?.unwrap_or(2_000),
         rounding: get(conn, PRICE_ROUNDING)?.unwrap_or(100),
+    })
+}
+
+pub const TAX_IS_PKP: &str = "tax.is_pkp";
+pub const TAX_PPN_RATE_BP: &str = "tax.ppn_rate_bp";
+
+/// Pengaturan pajak (FLOW.md §6: PKP ya/tidak; PPN pembelian selalu ditangani).
+#[derive(Debug, Clone, Copy, Serialize, serde::Deserialize, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct TaxSettings {
+    /// Apotek Pengusaha Kena Pajak: PPN masukan bisa dikreditkan, jadi tidak masuk HPP.
+    pub is_pkp: bool,
+    /// Tarif PPN default untuk faktur pembelian (basis point, 11% = 1100).
+    pub ppn_rate_bp: i64,
+}
+
+pub fn tax(conn: &Connection) -> AppResult<TaxSettings> {
+    Ok(TaxSettings {
+        is_pkp: get(conn, TAX_IS_PKP)?.unwrap_or(false),
+        ppn_rate_bp: get(conn, TAX_PPN_RATE_BP)?.unwrap_or(1_100),
     })
 }
 

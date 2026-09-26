@@ -185,7 +185,7 @@ export class Dashboard {
         sub: `${db.overdue.count} faktur · ${db.dueSoon.count} jatuh tempo ≤ 7 hari`,
         icon: 'pi pi-credit-card',
         tone: db.overdue.count > 0 ? 'danger' : db.dueSoon.count > 0 ? 'warn' : 'good',
-        link: this.linkIf('PURCHASE_RECEIVE', '/pembelian'),
+        link: this.linkIf('SUPPLIER_DEBT_MANAGE', '/pembelian/hutang'),
       });
     }
     return tiles;

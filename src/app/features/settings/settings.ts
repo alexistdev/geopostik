@@ -1,14 +1,17 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
+import { InputNumberModule } from 'primeng/inputnumber';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { TagModule } from 'primeng/tag';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 
 import type { LicenseState } from '../../bindings/LicenseState';
+import { settingsApi } from '../../core/api/settings.api';
 import { LicenseService } from '../../core/license/license.service';
 import { Notify } from '../../core/ui/notify';
-import { DateTimePipe } from '../../shared/format';
+import { DateTimePipe, bpToPercent, percentToBp } from '../../shared/format';
 
 const STATE_LABELS: Record<LicenseState, { label: string; severity: 'success' | 'danger' | 'warn' }> = {
   NOT_ACTIVATED: { label: 'Belum diaktifkan', severity: 'danger' },
@@ -20,7 +23,7 @@ const STATE_LABELS: Record<LicenseState, { label: string; severity: 'success' | 
 /** Menu Pengaturan. Tetap bisa dibuka saat license tidak aktif. */
 @Component({
   selector: 'app-settings',
-  imports: [FormsModule, ButtonModule, InputTextModule, MessageModule, TagModule, DateTimePipe],
+  imports: [FormsModule, ButtonModule, InputNumberModule, InputTextModule, MessageModule, TagModule, ToggleSwitchModule, DateTimePipe],
   template: `
     <h2>Pengaturan</h2>
 
@@ -78,6 +81,31 @@ const STATE_LABELS: Record<LicenseState, { label: string; severity: 'success' | 
         </form>
       }
     </section>
+
+    @if (tax(); as t) {
+      <section class="card">
+        <header>
+          <h3>Pajak pembelian</h3>
+        </header>
+        <label class="switch">
+          <p-toggleswitch [(ngModel)]="t.isPkp" />
+          <span>
+            <b>Apotek PKP</b> (Pengusaha Kena Pajak)
+            <small class="muted">
+              PKP: PPN faktur pembelian dikreditkan sehingga tidak masuk HPP. Non-PKP: PPN ikut menjadi HPP.
+            </small>
+          </span>
+        </label>
+        <div class="change">
+          <label for="ppnRate">Tarif PPN default faktur</label>
+          <div class="row">
+            <p-inputnumber inputId="ppnRate" [(ngModel)]="t.rate" suffix="%" [min]="0" [max]="100" [maxFractionDigits]="2" locale="id-ID" />
+            <p-button label="Simpan" icon="pi pi-check" severity="secondary" [loading]="savingTax()" (onClick)="saveTax()" />
+          </div>
+          <small class="muted">Bisa diubah per faktur. Faktur yang sudah diposting tetap memakai pengaturan saat diposting.</small>
+        </div>
+      </section>
+    }
   `,
   styles: `
     h2 {
@@ -114,6 +142,21 @@ const STATE_LABELS: Record<LicenseState, { label: string; severity: 'success' | 
     }
     dd {
       margin: 0;
+    }
+    .card + .card {
+      margin-top: 1rem;
+    }
+    .switch {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      cursor: pointer;
+    }
+    .switch span {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
     }
     .mono {
       font-family: Consolas, monospace;
@@ -155,6 +198,30 @@ export class Settings {
   });
   protected readonly loading = signal<'revalidate' | 'activate' | null>(null);
   protected newKey = '';
+  /** Pajak; kosong bila tidak bisa dimuat (misal license tidak aktif atau bukan pemilik). */
+  protected readonly tax = signal<{ isPkp: boolean; rate: number | null } | null>(null);
+  protected readonly savingTax = signal(false);
+
+  constructor() {
+    settingsApi.taxGet().then(
+      (t) => this.tax.set({ isPkp: t.isPkp, rate: bpToPercent(t.ppnRateBp) }),
+      () => this.tax.set(null),
+    );
+  }
+
+  protected async saveTax(): Promise<void> {
+    const t = this.tax();
+    if (!t) return;
+    this.savingTax.set(true);
+    try {
+      await settingsApi.taxSave({ isPkp: t.isPkp, ppnRateBp: percentToBp(t.rate) ?? 0 });
+      this.notify.success('Pengaturan pajak disimpan');
+    } catch (e) {
+      this.notify.error(e);
+    } finally {
+      this.savingTax.set(false);
+    }
+  }
 
   protected async revalidate(): Promise<void> {
     this.loading.set('revalidate');

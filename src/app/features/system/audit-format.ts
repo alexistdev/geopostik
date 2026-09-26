@@ -5,6 +5,7 @@ import type { Gender } from '../../bindings/Gender';
 import type { PrescriptionStatus } from '../../bindings/PrescriptionStatus';
 import { PRESCRIPTION_STATUSES, genderLabel, statusInfo } from '../prescription/rx-labels';
 import { drugClassInfo, PRICE_MODES, ROLES } from '../../shared/labels';
+import { PAYMENT_METHODS, PAYMENT_TYPES, PURCHASE_STATUSES, TAX_MODES } from '../purchasing/purchase-labels';
 
 type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
 
@@ -21,6 +22,10 @@ export const ENTITIES: { value: string; label: string }[] = [
   { value: 'prescriptions', label: 'Resep' },
   { value: 'doctors', label: 'Dokter' },
   { value: 'customers', label: 'Pasien' },
+  { value: 'suppliers', label: 'Supplier' },
+  { value: 'purchases', label: 'Faktur pembelian' },
+  { value: 'supplier_payments', label: 'Pembayaran hutang' },
+  { value: 'settings', label: 'Pengaturan' },
 ];
 
 /** Aksi yang bisa difilter. Aksi lama berawalan entitas (PRODUCT_UPDATE) ikut cocok. */
@@ -37,6 +42,8 @@ export const ACTIONS: { value: string; label: string; severity: TagSeverity }[] 
   { value: 'APPROVE', label: 'Setujui', severity: 'success' },
   { value: 'CANCEL', label: 'Batalkan', severity: 'danger' },
   { value: 'SCREEN', label: 'Validasi resep', severity: 'success' },
+  { value: 'POST', label: 'Posting', severity: 'success' },
+  { value: 'VOID', label: 'Batal', severity: 'danger' },
   { value: 'LOCK', label: 'Kunci', severity: 'warn' },
   { value: 'UNLOCK', label: 'Buka kunci', severity: 'success' },
   { value: 'OPENING_LOCK', label: 'Kunci stok awal', severity: 'contrast' },
@@ -120,6 +127,30 @@ const FIELD_LABELS: Record<string, string> = {
   roles: 'Peran',
   licenseType: 'Jenis izin',
   licenseNumber: 'Nomor SIPA/SIPTTK',
+  npwp: 'NPWP',
+  paymentTermDays: 'Tempo (hari)',
+  invoiceNumber: 'No. faktur',
+  invoiceDate: 'Tanggal faktur',
+  receivedDate: 'Tanggal terima',
+  dueDate: 'Jatuh tempo',
+  paymentType: 'Pembayaran',
+  taxMode: 'PPN',
+  taxRateBp: 'Tarif PPN',
+  extraDiscount: 'Diskon faktur',
+  grandTotal: 'Total faktur',
+  bonusQty: 'Bonus',
+  discount1Bp: 'Diskon 1',
+  discount2Bp: 'Diskon 2',
+  itemCount: 'Jumlah baris',
+  updatePrices: 'Perbarui harga otomatis',
+  purchase: 'Faktur',
+  paymentDate: 'Tanggal bayar',
+  amount: 'Jumlah',
+  method: 'Metode',
+  reference: 'Referensi',
+  isPkp: 'PKP',
+  previousStatus: 'Status sebelumnya',
+  ppnRateBp: 'Tarif PPN',
 };
 
 export function fieldLabel(path: string[]): string {
@@ -142,6 +173,10 @@ export function formatValue(key: string, value: unknown): string {
   if (typeof value === 'number') {
     switch (key) {
       case 'marginBp':
+      case 'taxRateBp':
+      case 'ppnRateBp':
+      case 'discount1Bp':
+      case 'discount2Bp':
         return `${bpToPercent(value)}%`;
       case 'lastCostX100':
         return formatCostX100(value);
@@ -150,6 +185,9 @@ export function formatValue(key: string, value: unknown): string {
       case 'unitPrice':
       case 'lineTotal':
       case 'total':
+      case 'extraDiscount':
+      case 'grandTotal':
+      case 'amount':
         return formatRupiah(value);
     }
     return String(value);
@@ -162,6 +200,10 @@ export function formatValue(key: string, value: unknown): string {
     if (key === 'gender') return genderLabel(value as Gender);
     if (key === 'opnameType') return value === 'OPENING' ? 'Stok awal' : value === 'PERIODIC' ? 'Opname berkala' : value;
     if (key === 'priceMode') return PRICE_MODES.find((m) => m.value === value)?.label ?? value;
+    if (key === 'paymentType') return PAYMENT_TYPES.find((m) => m.value === value)?.label ?? value;
+    if (key === 'taxMode') return TAX_MODES.find((m) => m.value === value)?.label ?? value;
+    if (key === 'method') return PAYMENT_METHODS.find((m) => m.value === value)?.label ?? value;
+    if (key === 'previousStatus') return PURCHASE_STATUSES.find((st) => st.value === value)?.label ?? value;
     if (key === 'roles') {
       return value
         .split(', ')

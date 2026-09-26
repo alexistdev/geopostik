@@ -7,6 +7,7 @@ mod inventory;
 mod license;
 mod master;
 mod prescription;
+mod purchasing;
 mod sales;
 mod settings;
 mod state;
@@ -128,6 +129,23 @@ pub fn run() {
             inventory::commands::opname_cancel,
             inventory::commands::opname_approve,
             inventory::commands::stock_opening_lock,
+            purchasing::commands::supplier_list,
+            purchasing::commands::supplier_page,
+            purchasing::commands::supplier_save,
+            purchasing::commands::supplier_set_active,
+            purchasing::commands::supplier_delete,
+            purchasing::commands::purchase_defaults,
+            purchasing::commands::purchase_page,
+            purchasing::commands::purchase_get,
+            purchasing::commands::purchase_product_search,
+            purchasing::commands::purchase_save,
+            purchasing::commands::purchase_post,
+            purchasing::commands::purchase_void,
+            purchasing::commands::debt_page,
+            purchasing::commands::supplier_payment_create,
+            purchasing::commands::supplier_payment_void,
+            settings::commands::tax_settings_get,
+            settings::commands::tax_settings_save,
             sales::commands::pos_state,
             sales::commands::shift_open,
             sales::commands::shift_close,

@@ -54,7 +54,7 @@ fn setup() -> Connection {
              VALUES (1, 'CASH', 10000, 20000, 10000);
          INSERT INTO sale_payments (sale_id, method, amount) VALUES (2, 'QRIS', 5000);
 
-         INSERT INTO suppliers (id, name) VALUES (1, 'PBF Sehat');
+         INSERT INTO suppliers (id, code, name) VALUES (1, 'SUP0001', 'PBF Sehat');
          INSERT INTO purchases (id, number, supplier_id, invoice_number, invoice_date, received_date, due_date,
                                 payment_type, tax_mode, grand_total, status, created_by)
              VALUES (1, 'PB-1', 1, 'F-1', '2026-08-01', '2026-08-01', '2026-09-20', 'CREDIT', 'NONE', 500000, 'POSTED', 1),

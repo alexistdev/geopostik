@@ -3,7 +3,7 @@ import { Routes } from '@angular/router';
 import { activationGuard, authGuard, guestGuard, permissionGuard, setupGuard } from './core/auth/guards';
 import { NAV_ITEMS } from './layout/nav';
 
-const BUILT = ['dashboard', 'kasir', 'obat', 'master-data', 'resep', 'stok', 'pengguna', 'pengaturan', 'sistem/log'];
+const BUILT = ['dashboard', 'kasir', 'obat', 'master-data', 'resep', 'pembelian', 'stok', 'pengguna', 'pengaturan', 'sistem/log'];
 
 // Menu yang belum punya halaman sendiri memakai Placeholder.
 const pendingRoutes: Routes = NAV_ITEMS.filter((item) => !BUILT.includes(item.path)).map((item) => ({
@@ -83,6 +83,31 @@ export const routes: Routes = [
           {
             path: 'pasien',
             loadComponent: () => import('./features/master/patients/patient-list').then((m) => m.PatientList),
+          },
+          {
+            path: 'supplier',
+            loadComponent: () => import('./features/master/suppliers/supplier-list').then((m) => m.SupplierList),
+          },
+        ],
+      },
+      {
+        path: 'pembelian',
+        canActivate: [permissionGuard('PURCHASE_RECEIVE')],
+        loadComponent: () => import('./features/purchasing/purchasing-page').then((m) => m.PurchasingPage),
+        children: [
+          { path: '', pathMatch: 'full', redirectTo: 'faktur' },
+          {
+            path: 'faktur',
+            loadComponent: () => import('./features/purchasing/purchase-list').then((m) => m.PurchaseList),
+          },
+          {
+            path: 'faktur/:id',
+            loadComponent: () => import('./features/purchasing/purchase-form').then((m) => m.PurchaseForm),
+          },
+          {
+            path: 'hutang',
+            canActivate: [permissionGuard('SUPPLIER_DEBT_MANAGE')],
+            loadComponent: () => import('./features/purchasing/debt-list').then((m) => m.DebtList),
           },
         ],
       },

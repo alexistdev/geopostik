@@ -345,9 +345,28 @@ Stok baru bertambah saat `POSTED`. Draft boleh disimpan setengah jadi.
 **Aturan HPP:** apotek **non-PKP** → PPN masuk HPP (karena tidak bisa dikreditkan).
 Apotek **PKP** → HPP tanpa PPN. Diskon faktur tingkat header dialokasikan proporsional ke baris.
 
-### `supplier_payments` (Tahap 2)
-supplier_id, purchase_id, payment_date, amount, method (`CASH`/`TRANSFER`/`GIRO`), note, created_by.
-Sisa hutang = `grand_total − SUM(payments) − SUM(retur yang memotong hutang)`.
+### `supplier_payments`
+number (`BH-YYMM-0001`), supplier_id, purchase_id, payment_date, amount, method (`CASH`/`TRANSFER`/`GIRO`),
+reference, note, created_by, voided_at, voided_by, void_reason.
+Sisa hutang = `grand_total − SUM(payments yang tidak dibatalkan) − SUM(retur yang memotong hutang)`
+(`purchasing::OUTSTANDING`, dipakai juga Dashboard).
+
+### Aturan tambahan (migration `015_purchasing.sql`, modul `src-tauri/src/purchasing/`)
+- `suppliers` mengikuti pola master: `code` otomatis `SUP0001` (tidak bisa diubah), soft delete
+  (`deleted_at`, `deleted_by`), `created_by`, nama unik di antara yang belum dihapus.
+- `purchases` dibangun ulang: `UNIQUE (supplier_id, invoice_number)` diganti index unik parsial
+  `WHERE status <> 'VOID'`; kolom baru `extra_discount` (diskon faktur, rupiah), `tax_in_cost` (snapshot
+  PKP saat posting), `posted_by`, `voided_at`, `voided_by`, `void_reason`. Nomor `PB-YYMM-0001`.
+  `subtotal` = Σ qty × harga; `discount_total` = diskon baris + diskon faktur.
+- `purchase_items` baru: `line_no`, `bonus_qty` (satuan beli, tanpa harga). Stok masuk
+  `(qty + bonus_qty) × conversion`; `unit_cost_x100` dan `batch_id` diisi saat posting.
+- Trigger: faktur tidak bisa dihapus; POSTED hanya boleh menjadi VOID tanpa mengubah angka; VOID final;
+  baris faktur hanya bisa diubah selama DRAFT. Pembayaran tidak bisa dihapus/diubah selain dibatalkan,
+  dan hanya untuk faktur `POSTED` + `CREDIT`.
+- Posting: satu batch per baris (`source_type = 'PURCHASE'`, `source_id` = baris faktur), movement
+  `PURCHASE` (`ref_type = 'purchase'`). Batal faktur diposting: movement `PURCHASE_VOID` per batch, hanya
+  bila batch belum punya movement lain dan faktur belum punya pembayaran aktif.
+- Pengaturan `tax.is_pkp` (default `false`) dan `tax.ppn_rate_bp` (default 1100).
 
 ---
 

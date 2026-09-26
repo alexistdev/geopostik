@@ -297,7 +297,10 @@ pub fn stock_card(conn: &Connection, q: &StockCardQuery) -> AppResult<Vec<StockC
         "{CARD_BASE}
          SELECT c.id, c.created_at, c.movement_type, c.batch_id, b.batch_number, b.expiry_date,
                 c.qty_change_base, c.balance, c.ref_type, c.ref_id,
-                CASE c.ref_type WHEN 'stock_opname' THEN (SELECT number FROM stock_opnames o WHERE o.id = c.ref_id) END,
+                CASE c.ref_type
+                    WHEN 'stock_opname' THEN (SELECT number FROM stock_opnames o WHERE o.id = c.ref_id)
+                    WHEN 'purchase' THEN (SELECT number FROM purchases pu WHERE pu.id = c.ref_id)
+                END,
                 u.username, c.note
          FROM card c
          JOIN batches b ON b.id = c.batch_id

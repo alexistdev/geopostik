@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use rusqlite::{Connection, OptionalExtension, named_params, params};
 
 use super::model::{
@@ -336,16 +338,18 @@ pub fn opname_pending(conn: &Connection, limit: i64) -> AppResult<Vec<OpnamePend
 // ─── Hutang ──────────────────────────────────────────────────────────────────
 
 /// Sisa hutang per faktur kredit: total − pembayaran − retur yang memotong hutang (SCHEMA.md §4).
-const DEBTS: &str = "
-    SELECT * FROM (
-        SELECT pu.id, pu.number, sp.name AS supplier_name, pu.invoice_number, pu.due_date,
-               pu.grand_total
-                 - COALESCE((SELECT SUM(amount) FROM supplier_payments x WHERE x.purchase_id = pu.id), 0)
-                 - COALESCE((SELECT SUM(total) FROM supplier_returns x
-                             WHERE x.purchase_id = pu.id AND x.settlement = 'DEBT_CUT'), 0) AS outstanding
-        FROM purchases pu JOIN suppliers sp ON sp.id = pu.supplier_id
-        WHERE pu.payment_type = 'CREDIT' AND pu.status = 'POSTED'
-    ) WHERE outstanding > 0";
+/// Rumusnya sama dengan menu Pembelian › Hutang (`purchasing::OUTSTANDING`).
+static DEBTS: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        "SELECT * FROM (
+            SELECT pu.id, pu.number, sp.name AS supplier_name, pu.invoice_number, pu.due_date,
+                   {} AS outstanding
+            FROM purchases pu JOIN suppliers sp ON sp.id = pu.supplier_id
+            WHERE pu.payment_type = 'CREDIT' AND pu.status = 'POSTED'
+        ) WHERE outstanding > 0",
+        crate::purchasing::OUTSTANDING
+    )
+});
 
 pub struct DebtTotals {
     pub outstanding: Tally,
@@ -354,6 +358,7 @@ pub struct DebtTotals {
 }
 
 pub fn debt_totals(conn: &Connection, today: &str, soon: &str) -> AppResult<DebtTotals> {
+    let debts = &*DEBTS;
     Ok(conn.query_row(
         &format!(
             "SELECT count(*), COALESCE(SUM(outstanding), 0),
@@ -361,7 +366,7 @@ pub fn debt_totals(conn: &Connection, today: &str, soon: &str) -> AppResult<Debt
                     COALESCE(SUM(CASE WHEN due_date < :today THEN outstanding END), 0),
                     COALESCE(SUM(due_date >= :today AND due_date <= :soon), 0),
                     COALESCE(SUM(CASE WHEN due_date >= :today AND due_date <= :soon THEN outstanding END), 0)
-             FROM ({DEBTS})"
+             FROM ({debts})"
         ),
         named_params! { ":today": today, ":soon": soon },
         |r| {
@@ -375,10 +380,11 @@ pub fn debt_totals(conn: &Connection, today: &str, soon: &str) -> AppResult<Debt
 }
 
 pub fn debts_upcoming(conn: &Connection, today: &str, limit: i64) -> AppResult<Vec<DebtRow>> {
+    let debts = &*DEBTS;
     let mut stmt = conn.prepare(&format!(
         "SELECT id, number, supplier_name, invoice_number, due_date, outstanding,
                 CAST(julianday(due_date) - julianday(:today) AS INTEGER)
-         FROM ({DEBTS})
+         FROM ({debts})
          ORDER BY due_date, id
          LIMIT :limit"
     ))?;
