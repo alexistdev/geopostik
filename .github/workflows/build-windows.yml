@@ -1,0 +1,55 @@
+# Build installer Windows (.exe NSIS + .msi) di runner windows-latest.
+# Tauri tidak bisa membuat installer Windows dari macOS (lihat docs/ARCHITECTURE.md §8).
+#
+# Jalankan manual: tab Actions › "Build Windows installer" › Run workflow.
+# Push tag `v*` (misal v0.1.0) juga menjalankan build ini.
+# Hasil: artifact "GeoPOSTik-windows" di halaman run (disimpan 14 hari).
+
+name: Build Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test backend
+        working-directory: src-tauri
+        run: cargo test --release
+
+      # beforeBuildCommand (npm run build) membangun Angular, lalu Tauri membuat .exe dan .msi.
+      - name: Build installer
+        run: npm run tauri build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GeoPOSTik-windows
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+          retention-days: 14
