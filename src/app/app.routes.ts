@@ -3,7 +3,7 @@ import { Routes } from '@angular/router';
 import { activationGuard, authGuard, guestGuard, permissionGuard, setupGuard } from './core/auth/guards';
 import { NAV_ITEMS } from './layout/nav';
 
-const BUILT = ['dashboard', 'obat', 'master-data', 'stok', 'pengguna', 'pengaturan', 'sistem/log'];
+const BUILT = ['dashboard', 'obat', 'master-data', 'resep', 'stok', 'pengguna', 'pengaturan', 'sistem/log'];
 
 // Menu yang belum punya halaman sendiri memakai Placeholder.
 const pendingRoutes: Routes = NAV_ITEMS.filter((item) => !BUILT.includes(item.path)).map((item) => ({
@@ -40,6 +40,12 @@ export const routes: Routes = [
         loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.Dashboard),
       },
       {
+        path: 'resep',
+        canActivate: [permissionGuard('PRESCRIPTION_INPUT')],
+        loadComponent: () =>
+          import('./features/prescription/prescription-list').then((m) => m.PrescriptionList),
+      },
+      {
         path: 'obat',
         canActivate: [permissionGuard('PRODUCT_MANAGE')],
         loadComponent: () => import('./features/master/products/product-list').then((m) => m.ProductList),
@@ -64,6 +70,14 @@ export const routes: Routes = [
             path: 'pabrik',
             data: { kind: 'manufacturer' },
             loadComponent: () => import('./features/master/named/named-list').then((m) => m.NamedList),
+          },
+          {
+            path: 'dokter',
+            loadComponent: () => import('./features/master/doctors/doctor-list').then((m) => m.DoctorList),
+          },
+          {
+            path: 'pasien',
+            loadComponent: () => import('./features/master/patients/patient-list').then((m) => m.PatientList),
           },
         ],
       },

@@ -1,0 +1,132 @@
+<nav class="page-tabs status-tabs" aria-label="Status resep">
+  <button type="button" [class.active]="status() === null" (click)="setStatus(null)"><i class="pi pi-list"></i>Semua</button>
+  @for (s of statuses; track s.value) {
+    <button type="button" [class.active]="status() === s.value" (click)="setStatus(s.value)">
+      <i [class]="s.icon"></i>{{ s.label }}
+      @if (countOf(s.value); as n) {
+        <span class="count" [class]="s.value.toLowerCase()">{{ n }}</span>
+      }
+    </button>
+  }
+</nav>
+
+<section class="data-card">
+  <div class="toolbar">
+    <p-iconfield>
+      <p-inputicon class="pi pi-search" />
+      <input
+        pInputText
+        type="search"
+        placeholder="Cari nomor, pasien, atau dokter"
+        [(ngModel)]="q"
+        (ngModelChange)="searchChanged()"
+      />
+    </p-iconfield>
+    <label class="date-range">
+      Tanggal resep
+      <input pInputText type="date" [(ngModel)]="dateFrom" (ngModelChange)="load(0)" aria-label="Dari tanggal" />
+      <span>–</span>
+      <input pInputText type="date" [(ngModel)]="dateTo" (ngModelChange)="load(0)" aria-label="Sampai tanggal" />
+    </label>
+    <span class="spacer"></span>
+    <p-button label="Resep baru" icon="pi pi-plus" (onClick)="editing.set(null)" />
+  </div>
+
+  <p-table
+    [value]="rows()"
+    dataKey="id"
+    [lazy]="true"
+    [lazyLoadOnInit]="false"
+    (onLazyLoad)="pageChanged($event.first ?? 0, $event.rows ?? pageSize)"
+    [paginator]="true"
+    [first]="first()"
+    [rows]="pageSize"
+    [rowsPerPageOptions]="pageSizes"
+    [totalRecords]="total()"
+    [showCurrentPageReport]="true"
+    [currentPageReportTemplate]="pageReport"
+    [loading]="loading()"
+    [rowHover]="true"
+    styleClass="data-table"
+  >
+    <ng-template #header>
+      <tr>
+        <th style="width: 11rem">Nomor</th>
+        <th style="width: 10rem">Resep dokter</th>
+        <th>Pasien</th>
+        <th>Dokter</th>
+        <th style="width: 6rem" class="num">Item</th>
+        <th style="width: 9rem" class="num">Total</th>
+        <th style="width: 11rem">Status</th>
+        <th style="width: 4rem"></th>
+      </tr>
+    </ng-template>
+    <ng-template #body let-r>
+      @let st = statusInfo(r.status);
+      <tr class="clickable" [class.inactive-row]="r.status === 'CANCELLED'" (click)="editing.set(r.id)">
+        <td>
+          <div class="stack">
+            <span class="cell-code">{{ r.number }}</span>
+            <small>{{ r.createdAt | dateTime }}</small>
+          </div>
+        </td>
+        <td>
+          <div class="stack">
+            {{ formatDate(r.prescriptionDate) }}
+            <small>No. {{ r.prescriptionNumber }}</small>
+          </div>
+        </td>
+        <td>
+          <div class="cell-name">
+            <span class="avatar">{{ r.patientName.charAt(0) }}</span>
+            <div class="stack">
+              {{ r.patientName }}
+              @if (r.patientAge) {
+                <small>{{ r.patientAge }}</small>
+              }
+            </div>
+          </div>
+        </td>
+        <td>{{ r.doctorName }}</td>
+        <td class="num">{{ r.itemCount }}</td>
+        <td class="num strong">{{ r.total | rupiah }}</td>
+        <td>
+          <div class="stack">
+            <span class="tags">
+              <p-tag [value]="st.label" [severity]="st.severity" />
+              @if (r.hasControlled) {
+                <p-tag value="N/P" severity="contrast" pTooltip="Berisi narkotika / psikotropika" tooltipPosition="top" />
+              }
+            </span>
+            @if (r.screenedBy && r.status !== 'CANCELLED') {
+              <small>oleh {{ r.screenedBy }}</small>
+            }
+          </div>
+        </td>
+        <td>
+          <p-button
+            [icon]="canValidate && r.status === 'DRAFT' ? 'pi pi-verified' : 'pi pi-chevron-right'"
+            [text]="true"
+            [rounded]="true"
+            size="small"
+            [pTooltip]="canValidate && r.status === 'DRAFT' ? 'Buka untuk skrining' : 'Buka'"
+            tooltipPosition="left"
+            ariaLabel="Buka resep"
+          />
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr class="empty-row">
+        <td colspan="8">
+          <i class="pi pi-inbox empty-icon"></i>
+          <div>{{ q || dateFrom || dateTo ? 'Tidak ada resep yang cocok.' : 'Belum ada resep pada status ini.' }}</div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>
+
+@if (editing() !== undefined) {
+  <app-prescription-dialog [prescriptionId]="editing() ?? null" (closed)="closed($event)" />
+}

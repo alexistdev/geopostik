@@ -1,6 +1,9 @@
 import type { AuditRow } from '../../bindings/AuditRow';
 import type { DrugClass } from '../../bindings/DrugClass';
 import { bpToPercent, formatCostX100, formatRupiah } from '../../shared/format';
+import type { Gender } from '../../bindings/Gender';
+import type { PrescriptionStatus } from '../../bindings/PrescriptionStatus';
+import { PRESCRIPTION_STATUSES, genderLabel, statusInfo } from '../prescription/rx-labels';
 import { drugClassInfo, PRICE_MODES, ROLES } from '../../shared/labels';
 
 type TagSeverity = 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
@@ -15,6 +18,9 @@ export const ENTITIES: { value: string; label: string }[] = [
   { value: 'stock_opnames', label: 'Stok opname' },
   { value: 'batches', label: 'Batch' },
   { value: 'users', label: 'Pengguna' },
+  { value: 'prescriptions', label: 'Resep' },
+  { value: 'doctors', label: 'Dokter' },
+  { value: 'customers', label: 'Pasien' },
 ];
 
 /** Aksi yang bisa difilter. Aksi lama berawalan entitas (PRODUCT_UPDATE) ikut cocok. */
@@ -30,6 +36,7 @@ export const ACTIONS: { value: string; label: string; severity: TagSeverity }[] 
   { value: 'REOPEN', label: 'Kembali ke draft', severity: 'secondary' },
   { value: 'APPROVE', label: 'Setujui', severity: 'success' },
   { value: 'CANCEL', label: 'Batalkan', severity: 'danger' },
+  { value: 'SCREEN', label: 'Validasi resep', severity: 'success' },
   { value: 'LOCK', label: 'Kunci', severity: 'warn' },
   { value: 'UNLOCK', label: 'Buka kunci', severity: 'success' },
   { value: 'OPENING_LOCK', label: 'Kunci stok awal', severity: 'contrast' },
@@ -87,6 +94,27 @@ const FIELD_LABELS: Record<string, string> = {
   username: 'Username',
   alsoPharmacist: 'Juga apoteker',
   opnameType: 'Jenis opname',
+  prescriptionNumber: 'No. resep dokter',
+  prescriptionDate: 'Tanggal resep',
+  doctor: 'Dokter',
+  patientAge: 'Umur pasien',
+  patientAddress: 'Alamat pasien',
+  note: 'Catatan',
+  status: 'Status',
+  screeningNote: 'Catatan skrining',
+  total: 'Total',
+  items: 'Obat',
+  qty: 'Jumlah',
+  unitPrice: 'Harga satuan',
+  lineTotal: 'Subtotal',
+  usageInstruction: 'Aturan pakai',
+  components: 'Komponen racikan',
+  sipNumber: 'No. SIP',
+  specialty: 'Spesialis',
+  address: 'Alamat',
+  phone: 'Telepon',
+  gender: 'Jenis kelamin',
+  birthDate: 'Tanggal lahir',
   batchNumber: 'No. batch',
   expiryDate: 'Tanggal ED',
   roles: 'Peran',
@@ -99,7 +127,7 @@ export function fieldLabel(path: string[]): string {
   for (let i = 0; i < path.length; i++) {
     const key = path[i];
     // `units` / `tiers` diikuti nama satuan / tier: digabung jadi "Satuan Strip", "Tier ≥ 10".
-    if ((key === 'units' || key === 'tiers') && i + 1 < path.length) {
+    if ((key === 'units' || key === 'tiers' || key === 'items') && i + 1 < path.length) {
       parts.push(`${FIELD_LABELS[key]} ${path[++i]}`);
     } else {
       parts.push(FIELD_LABELS[key] ?? key);
@@ -119,12 +147,19 @@ export function formatValue(key: string, value: unknown): string {
         return formatCostX100(value);
       case 'sellPrice':
       case 'price':
+      case 'unitPrice':
+      case 'lineTotal':
+      case 'total':
         return formatRupiah(value);
     }
     return String(value);
   }
   if (typeof value === 'string') {
     if (key === 'drugClass') return drugClassInfo(value as DrugClass)?.label ?? value;
+    if (key === 'status' && PRESCRIPTION_STATUSES.some((st) => st.value === value)) {
+      return statusInfo(value as PrescriptionStatus).label;
+    }
+    if (key === 'gender') return genderLabel(value as Gender);
     if (key === 'opnameType') return value === 'OPENING' ? 'Stok awal' : value === 'PERIODIC' ? 'Opname berkala' : value;
     if (key === 'priceMode') return PRICE_MODES.find((m) => m.value === value)?.label ?? value;
     if (key === 'roles') {

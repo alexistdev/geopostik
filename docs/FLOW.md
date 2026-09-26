@@ -162,8 +162,12 @@ ditempel di rak) dan di-scan untuk mencari atau memilihnya. Setiap baris punya t
 **Nonaktifkan/Aktifkan**, dan **Hapus**. Master data **tidak pernah dihapus permanen**: hapus
 berarti soft delete (disembunyikan, riwayat tetap tersimpan). Hapus hanya bisa bila data belum
 dipakai obat mana pun; bila sudah dipakai, nonaktifkan saja (tidak muncul lagi sebagai pilihan,
-obat lama tetap utuh). Menyusul: supplier, dokter, pasien/pelanggan. Jenis satuan dibuat langsung
-dari form obat.
+obat lama tetap utuh). Jenis satuan dibuat langsung dari form obat. Menyusul: supplier.
+
+Master **Dokter** (`DOK0001`: nama, No. SIP, spesialis, alamat, telepon) dan **Pasien** (`PSN0001`:
+nama, jenis kelamin, tanggal lahir, alamat, telepon) juga ada di menu Master Data, dikelola oleh
+yang berhak input resep, dan bisa ditambah langsung dari form resep. Keduanya tidak bisa dihapus
+bila sudah tercatat di resep (nonaktifkan saja).
 
 ### D. Pembelian dan penerimaan barang
 ```
@@ -206,6 +210,29 @@ Input resep: nomor, tanggal, dokter, pasien (nama, umur, alamat)
    ─► Bayar di kasir ─► struk + copy resep bila perlu
    ─► Narkotika/psikotropika tercatat khusus untuk laporan bulanan (format SIPNAP)
 ```
+
+Menu **Resep** (sudah dibuat; pembayaran menyusul bersama Kasir):
+
+| Status | Arti | Siapa |
+|---|---|---|
+| `DRAFT` — menunggu skrining | resep baru, atau resep yang diubah setelah divalidasi | input: pemilik, apoteker, TTK (`PRESCRIPTION_INPUT`) |
+| `SCREENED` — siap dibayar | apoteker sudah mencentang skrining administratif, farmasetik, klinis (+ catatan) | apoteker (`PRESCRIPTION_VALIDATE`) |
+| `PAID` — dibayar | diisi Kasir saat resep dibayar (stok berkurang FEFO saat itu) | kasir |
+| `CANCELLED` — batal | wajib alasan; resep tidak dihapus dan tidak bisa diubah lagi | `PRESCRIPTION_INPUT` |
+
+- Nomor internal otomatis `RSP-YYMM-0001`, terpisah dari nomor resep yang ditulis dokter.
+- Tanggal resep tidak boleh setelah hari ini. Pasien terdaftar opsional; nama, umur, dan alamat
+  selalu disimpan sebagai snapshot di resep (umur dihitung dari tanggal lahir pasien).
+- Baris resep: **obat** (satuan jual + jumlah + aturan pakai), **racikan** (nama, bentuk sediaan
+  puyer/kapsul/salep/cairan/lainnya, jumlah bungkus/kapsul/pot, aturan pakai, komponen obat dengan
+  jumlah total untuk seluruh racikan), dan **jasa** (jasa racik, embalase, dll. dengan tarif manual).
+- Harga obat dihitung sistem dari harga jual satuan + tier grosir; nilai racikan = jumlah
+  komponennya. Harga ini perkiraan; harga final dihitung ulang saat dibayar.
+- Resep berisi narkotika/psikotropika wajib punya alamat pasien (SIPNAP).
+- Stok **tidak** berkurang saat resep diinput; kekurangan stok (batch belum ED, tidak terkunci)
+  hanya ditampilkan sebagai peringatan.
+- Semua langkah (tambah, ubah, validasi, batal) tercatat di log audit.
+- Etiket aturan pakai dicetak nanti bersama printer label (lihat ARCHITECTURE §6).
 
 ### G. Retur
 - **Retur penjualan:** cari nomor struk ─► pilih item ─► alasan ─► otorisasi PIN pemilik/apoteker
@@ -260,7 +287,7 @@ salinan terakhir, dan ada tombol backup manual ke flashdisk. Restore hanya bisa 
 3. Kasir/POS
 4. Penjualan resep
 5. Obat (daftar & form obat, harga, tier grosir)
-6. Master Data: kategori, rak, pabrik (menyusul supplier, dokter, pasien)
+6. Master Data: kategori, rak, pabrik, dokter, pasien (menyusul supplier)
 7. Pembelian/penerimaan barang, hutang supplier
 8. Retur (penjualan dan supplier)
 9. Stok: stok awal, kartu stok, stok opname, pemusnahan

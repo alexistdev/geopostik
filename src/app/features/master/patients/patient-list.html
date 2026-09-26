@@ -1,0 +1,115 @@
+<section class="data-card">
+  <div class="toolbar">
+    <p-iconfield>
+      <p-inputicon class="pi pi-search" />
+      <input
+        pInputText
+        type="search"
+        placeholder="Cari nama, kode, atau telepon"
+        [ngModel]="table.search()"
+        (ngModelChange)="table.searchChanged($event)"
+      />
+    </p-iconfield>
+    <span class="hint"><i class="pi pi-info-circle"></i>Data pasien untuk resep; nama, umur, dan alamat terisi otomatis di resep.</span>
+    @if (canEdit) {
+      <p-button label="Tambah Pasien" icon="pi pi-plus" (onClick)="open(null)" />
+    }
+  </div>
+
+  <p-table
+    [value]="table.rows()"
+    dataKey="id"
+    [lazy]="true"
+    [lazyLoadOnInit]="false"
+    (onLazyLoad)="table.pageChanged($event.first ?? 0, $event.rows ?? table.pageSize())"
+    [paginator]="true"
+    [first]="table.first()"
+    [rows]="table.pageSize()"
+    [rowsPerPageOptions]="pageSizes"
+    [totalRecords]="table.total()"
+    [showCurrentPageReport]="true"
+    [currentPageReportTemplate]="pageReport"
+    [loading]="table.loading()"
+    [rowHover]="true"
+    styleClass="data-table"
+  >
+    <ng-template #header>
+      <tr>
+        <th style="width: 9rem">Kode</th>
+        <th>Nama</th>
+        <th style="width: 11rem">Tanggal lahir</th>
+        <th style="width: 11rem">Telepon</th>
+        <th>Alamat</th>
+        <th style="width: 10rem">Dibuat</th>
+        <th style="width: 8rem">Status</th>
+        @if (canEdit) {
+          <th style="width: 8.5rem"></th>
+        }
+      </tr>
+    </ng-template>
+    <ng-template #body let-item>
+      @let created = (item.createdAt | dateTime).split(' ');
+      <tr [class.inactive-row]="!item.isActive">
+        <td><span class="cell-code">{{ item.code }}</span></td>
+        <td>
+          <div class="cell-name">
+            <span class="avatar">{{ item.name.charAt(0) }}</span>
+            <div class="stack">
+              {{ item.name }}
+              @if (item.gender) {
+                <small>{{ genderLabel(item.gender) }}</small>
+              }
+            </div>
+          </div>
+        </td>
+        <td>
+          @if (item.birthDate) {
+            <div class="stack">
+              {{ formatDate(item.birthDate) }}
+              <small>{{ age(item.birthDate) }}</small>
+            </div>
+          } @else {
+            <span class="muted">–</span>
+          }
+        </td>
+        <td>{{ item.phone || '–' }}</td>
+        <td><span class="clip" [title]="item.address ?? ''">{{ item.address || '–' }}</span></td>
+        <td>
+          <div class="cell-date">
+            {{ created[0] }}
+            @if (item.createdBy) {
+              <small>oleh {{ item.createdBy }}</small>
+            }
+          </div>
+        </td>
+        <td>
+          <span class="status" [class.on]="item.isActive">{{ item.isActive ? 'Aktif' : 'Nonaktif' }}</span>
+        </td>
+        @if (canEdit) {
+          <td>
+            <app-master-row-actions
+              [api]="rowApi"
+              label="Pasien"
+              [row]="item"
+              deleteMessage="Pasien ini akan disembunyikan dari daftar dan pilihan saat input resep."
+              (edit)="open(item)"
+              (changed)="table.load()"
+            />
+          </td>
+        }
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr class="empty-row">
+        <td colspan="8">
+          <i class="pi pi-inbox empty-icon"></i>
+          <div>{{ table.search() ? 'Tidak ada pasien yang cocok.' : 'Belum ada data pasien.' }}</div>
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</section>
+
+@if (editing() !== undefined) {
+  <app-patient-dialog [patient]="editing() ?? null" (saved)="saved()" (closed)="editing.set(undefined)" />
+}

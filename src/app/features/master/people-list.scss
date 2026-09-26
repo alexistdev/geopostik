@@ -1,0 +1,29 @@
+// Gaya tambahan tabel Dokter & Pasien (di atas gaya global .data-table).
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+
+  small {
+    font-size: 0.75rem;
+    color: var(--p-text-muted-color);
+  }
+}
+
+.mono {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.muted {
+  color: var(--p-text-muted-color);
+}
+
+.clip {
+  display: block;
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

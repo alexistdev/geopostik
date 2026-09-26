@@ -204,8 +204,12 @@ pembuatnya. Data yang dibuat sebelum migration ini `created_by` = NULL (tampil "
 | Tabel | Kolom utama |
 |---|---|
 | suppliers | name, address, phone, npwp, payment_term_days, is_active |
-| doctors | name, sip_number, specialty, address, phone, is_active |
-| customers | name, gender, birth_date, address, phone, is_active (dipakai juga sebagai pasien resep) |
+| doctors | code, name, sip_number, specialty, address, phone, is_active |
+| customers | code, name, gender (`M`/`F`), birth_date, address, phone, is_active (dipakai juga sebagai pasien resep) |
+
+`doctors` dan `customers` (migration `013_prescriptions.sql`) mengikuti pola master lain: kode
+otomatis `DOK0001` / `PSN0001` yang tidak bisa diubah, soft delete (`deleted_at`, `deleted_by`),
+dan `created_by`. Hapus ditolak bila sudah dipakai resep.
 
 ---
 
@@ -433,7 +437,7 @@ Aturan:
 
 ---
 
-## 6. Resep (Tahap 3, dirancang sekarang)
+## 6. Resep
 
 ### `prescriptions`
 | Kolom | Tipe | Keterangan |
@@ -444,10 +448,26 @@ Aturan:
 | doctor_id | FK | |
 | customer_id | FK NULL | |
 | patient_name, patient_age, patient_address | TEXT | snapshot (wajib untuk laporan narkotika) |
-| screened_by, screened_at | FK users, TEXT | skrining apoteker |
+| number | TEXT UNIQUE | nomor internal `RSP-2609-0001` (`doc_sequences`), tidak bisa diubah |
+| status | TEXT | `DRAFT` / `SCREENED` / `PAID` / `CANCELLED` |
+| screened_by, screened_at, screening_note | FK users, TEXT, TEXT | skrining apoteker |
+| created_by | FK users | |
+| cancelled_at, cancelled_by, cancel_reason | | batal wajib beralasan |
 | note | TEXT NULL | |
 
-Obat dan racikan resep tercatat di `sale_items` yang sama (lewat `sales.prescription_id`).
+Trigger: `DELETE` ditolak; resep `PAID`/`CANCELLED` tidak bisa di-`UPDATE`. Mengubah resep
+`SCREENED` mengembalikannya ke `DRAFT` (validasi dihapus).
+
+### `prescription_items` — isi resep sebelum dibayar
+Bentuk sama dengan `sale_items`: `item_kind` `PRODUCT` / `COMPOUND` / `SERVICE`, `parent_item_id`
+(komponen racikan → baris `COMPOUND`), `product_id`, `product_unit_id`, `description` (snapshot nama),
+`compound_form` (`POWDER`/`CAPSULE`/`OINTMENT`/`LIQUID`/`OTHER`, hanya racikan), `qty`, `conversion`,
+`qty_base`, `unit_price` (sudah harga tier), `price_tier_id`, `line_total`, `usage_instruction`.
+Nilai baris `COMPOUND` = jumlah `line_total` komponennya. Item tidak pernah di-`UPDATE`: saat resep
+disimpan, item lama dihapus (komponen dulu) lalu ditulis ulang; ditolak bila resep sudah `PAID`/`CANCELLED`.
+Stok belum berkurang di tahap ini.
+
+Saat dibayar, item disalin ke `sale_items` (lewat `sales.prescription_id`) dan stok berkurang FEFO.
 Laporan narkotika/psikotropika = `sale_items` join `products.drug_class`, ditambah
 penerimaan dari `purchase_items`, dan stok awal/akhir dari kartu stok.
 

@@ -5,6 +5,7 @@ mod error;
 mod inventory;
 mod license;
 mod master;
+mod prescription;
 mod settings;
 mod state;
 mod users;
@@ -95,6 +96,20 @@ pub fn run() {
             master::commands::product_delete_many,
             audit::commands::audit_page,
             audit::commands::audit_users,
+            prescription::commands::doctor_list,
+            prescription::commands::doctor_page,
+            prescription::commands::doctor_save,
+            prescription::commands::doctor_set_active,
+            prescription::commands::doctor_delete,
+            prescription::commands::patient_page,
+            prescription::commands::patient_save,
+            prescription::commands::patient_set_active,
+            prescription::commands::patient_delete,
+            prescription::commands::prescription_page,
+            prescription::commands::prescription_get,
+            prescription::commands::prescription_save,
+            prescription::commands::prescription_screen,
+            prescription::commands::prescription_cancel,
             inventory::commands::stock_list,
             inventory::commands::stock_batches,
             inventory::commands::batch_set_locked,

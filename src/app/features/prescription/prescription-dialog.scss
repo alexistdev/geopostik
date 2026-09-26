@@ -1,0 +1,290 @@
+// Dialog resep. Kartu, header, dan field memakai gaya global .master-dialog.
+
+.rx-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3rem;
+  justify-content: center;
+  color: var(--p-text-muted-color);
+}
+
+p-message {
+  display: block;
+  margin-top: 0.75rem;
+}
+
+.plain {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.rx-head {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: 1rem;
+
+  .span-2 {
+    grid-column: span 2;
+  }
+
+  .span-4 {
+    grid-column: span 4;
+  }
+
+  .req {
+    font-weight: 500;
+  }
+}
+
+.with-action {
+  display: flex;
+  gap: 0.5rem;
+
+  > :first-child {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.opt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+
+  > span {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  small {
+    color: var(--p-text-muted-color);
+  }
+
+  .mono {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 0.8rem;
+    color: var(--p-text-muted-color);
+  }
+}
+
+.rx-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+
+  .rx-search {
+    flex: 1;
+  }
+}
+
+:host ::ng-deep .rx-search {
+  display: flex;
+  width: 100%;
+
+  .p-autocomplete-input {
+    width: 100%;
+  }
+}
+
+.rx-items {
+  width: 100%;
+  margin-bottom: 1rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+
+  th {
+    padding: 0.5rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-align: left;
+    text-transform: uppercase;
+    color: var(--p-text-muted-color);
+    border-bottom: 1px solid var(--p-content-border-color);
+  }
+
+  td {
+    padding: 0.45rem 0.5rem;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--p-content-border-color);
+  }
+
+  .num {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .strong {
+    font-weight: 600;
+  }
+
+  .no {
+    color: var(--p-text-muted-color);
+    font-weight: 600;
+  }
+
+  .muted {
+    color: var(--p-text-muted-color);
+  }
+
+  .tier {
+    display: block;
+    color: var(--p-primary-600);
+    font-size: 0.72rem;
+  }
+
+  :host ::ng-deep & .qty {
+    width: 100%;
+    text-align: right;
+  }
+
+  :host ::ng-deep & .price {
+    width: 7.5rem;
+    text-align: right;
+  }
+
+  tr.compound-head td {
+    background: color-mix(in srgb, var(--p-primary-500) 6%, transparent);
+    border-bottom-style: dashed;
+  }
+
+  tr.component td {
+    border-bottom-style: dashed;
+    font-size: 0.83rem;
+  }
+
+  tr.component.add td,
+  tr.component:last-child td {
+    border-bottom-style: solid;
+  }
+
+  tr.empty td {
+    padding: 2rem;
+    text-align: center;
+    color: var(--p-text-muted-color);
+
+    i {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+  }
+
+  tfoot td {
+    padding-top: 0.75rem;
+    border-bottom: 0;
+    font-weight: 600;
+
+    p-tag {
+      margin-left: 0.5rem;
+    }
+  }
+
+  .total {
+    font-size: 1.1rem;
+    color: var(--p-primary-700);
+  }
+}
+
+.compound-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  i {
+    color: var(--p-primary-600);
+  }
+
+  input {
+    flex: 1;
+    min-width: 8rem;
+  }
+}
+
+.component-name {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding-left: 0.5rem;
+
+  > i {
+    color: var(--p-text-muted-color);
+  }
+}
+
+.drug {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.drug-name {
+  font-weight: 600;
+}
+
+.drug-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--p-text-muted-color);
+
+  .mono {
+    font-family: ui-monospace, Consolas, monospace;
+  }
+
+  .short {
+    color: var(--p-red-600);
+    font-weight: 600;
+  }
+
+  :host ::ng-deep & .p-tag {
+    padding: 0 0.4rem;
+    font-size: 0.68rem;
+  }
+}
+
+.rx-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+
+  .spacer {
+    flex: 1;
+  }
+}
+
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.875rem;
+  cursor: pointer;
+
+  span {
+    display: flex;
+    flex-direction: column;
+    font-weight: 600;
+  }
+
+  small {
+    font-weight: 400;
+    color: var(--p-text-muted-color);
+  }
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.dlg-icon.danger {
+  background: var(--p-red-50);
+  color: var(--p-red-600);
+}

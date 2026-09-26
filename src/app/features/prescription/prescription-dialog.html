@@ -1,0 +1,501 @@
+@let d = detail();
+@let edit = editable();
+<p-dialog
+  [visible]="true"
+  (visibleChange)="close()"
+  [modal]="true"
+  [draggable]="false"
+  [closeOnEscape]="!sub()"
+  [style]="{ width: 'min(1240px, 96vw)' }"
+  styleClass="master-dialog rx-dialog"
+>
+  <ng-template #header>
+    <div class="dlg-head">
+      <span class="dlg-icon"><i class="pi pi-file-edit"></i></span>
+      <div class="dlg-title">
+        <span class="dlg-name">{{ d ? 'Resep ' + d.number : 'Resep baru' }}</span>
+        @if (d) {
+          @let st = statusInfo(d.status);
+          <span class="dlg-meta">
+            <p-tag [value]="st.label" [severity]="st.severity" [icon]="st.icon" />
+            @if (hasControlled()) {
+              <p-tag value="Narkotika / psikotropika" severity="contrast" />
+            }
+            <span>Diinput {{ d.createdAt | dateTime }}{{ d.createdBy ? ' oleh ' + d.createdBy : '' }}</span>
+          </span>
+        } @else {
+          <span class="dlg-meta">Isi data resep dan obatnya. Apoteker memvalidasi sebelum dibayar di kasir.</span>
+        }
+      </div>
+    </div>
+  </ng-template>
+
+  @if (loading()) {
+    <div class="rx-loading"><i class="pi pi-spin pi-spinner"></i> Memuat resep…</div>
+  } @else {
+    @if (d) {
+      @switch (d.status) {
+        @case ('DRAFT') {
+          <p-message severity="warn" icon="pi pi-hourglass">
+            Menunggu skrining apoteker. Resep baru bisa dibayar di kasir setelah divalidasi.
+          </p-message>
+        }
+        @case ('SCREENED') {
+          <p-message severity="success" icon="pi pi-verified">
+            Divalidasi {{ d.screenedBy }} pada {{ d.screenedAt | dateTime }}{{ d.screeningNote ? ' — ' + d.screeningNote : '' }}.
+            Siap dibayar di kasir. Mengubah resep akan membatalkan validasi.
+          </p-message>
+        }
+        @case ('PAID') {
+          <p-message severity="info" icon="pi pi-check-circle">Resep sudah dibayar dan tidak bisa diubah.</p-message>
+        }
+        @case ('CANCELLED') {
+          <p-message severity="secondary" icon="pi pi-times-circle">
+            Dibatalkan {{ d.cancelledBy }} pada {{ d.cancelledAt | dateTime }}: {{ d.cancelReason }}
+          </p-message>
+        }
+      }
+      @for (w of d.warnings; track w) {
+        <p-message severity="warn" icon="pi pi-exclamation-triangle">{{ w }}</p-message>
+      }
+    }
+
+    <!-- ─── Data resep ─────────────────────────────────────────────────── -->
+    <section class="card">
+      <header class="card-head">
+        <span class="card-icon"><i class="pi pi-id-card"></i></span>
+        <div>
+          <h3>Data resep</h3>
+          <p>Nomor & tanggal sesuai lembar resep dokter. Data pasien tersimpan di resep untuk etiket dan laporan.</p>
+        </div>
+      </header>
+      <fieldset class="plain rx-head" [disabled]="!edit">
+        <div class="field">
+          <label for="rxNumber">No. resep <span class="req">*</span></label>
+          <input pInputText id="rxNumber" [(ngModel)]="rx.prescriptionNumber" (ngModelChange)="touch()" placeholder="Nomor dari dokter" />
+        </div>
+        <div class="field">
+          <label for="rxDate">Tanggal resep <span class="req">*</span></label>
+          <input pInputText id="rxDate" type="date" [max]="today" [(ngModel)]="rx.prescriptionDate" (ngModelChange)="touch()" />
+        </div>
+        <div class="field span-2">
+          <label for="rxDoctor">Dokter <span class="req">*</span></label>
+          <div class="with-action">
+            <p-select
+              inputId="rxDoctor"
+              [options]="doctorOptions()"
+              optionValue="id"
+              optionLabel="name"
+              [(ngModel)]="rx.doctorId"
+              (ngModelChange)="touch()"
+              [filter]="true"
+              filterBy="name,code,sipNumber,specialty"
+              placeholder="Pilih dokter"
+              [disabled]="!edit"
+              appendTo="body"
+              styleClass="w-full"
+            >
+              <ng-template #item let-o>
+                <div class="opt">
+                  <span>{{ o.name }}@if (!o.isActive) { <em> (nonaktif)</em> }</span>
+                  <small>{{ o.specialty || 'Umum' }}{{ o.sipNumber ? ' · SIP ' + o.sipNumber : '' }}</small>
+                </div>
+              </ng-template>
+              <ng-template #empty>Belum ada dokter. Klik + untuk menambah.</ng-template>
+            </p-select>
+            @if (edit) {
+              <p-button icon="pi pi-plus" severity="secondary" [outlined]="true" pTooltip="Dokter baru" tooltipPosition="top" (onClick)="sub.set('doctor')" />
+            }
+          </div>
+        </div>
+
+        <div class="field span-2">
+          <label for="rxPatientPick">Pasien terdaftar</label>
+          <div class="with-action">
+            <p-autocomplete
+              inputId="rxPatientPick"
+              [(ngModel)]="patientQuery"
+              [suggestions]="patientSuggestions"
+              (completeMethod)="searchPatients($event)"
+              (onSelect)="selectPatient($event.value)"
+              (onClear)="clearPatient()"
+              optionLabel="name"
+              [delay]="200"
+              [showClear]="edit && !!rx.customerId"
+              [disabled]="!edit"
+              placeholder="Cari nama / kode / telepon (opsional)"
+              appendTo="body"
+              styleClass="w-full"
+              inputStyleClass="w-full"
+            >
+              <ng-template #item let-p>
+                <div class="opt">
+                  <span><span class="mono">{{ p.code }}</span> {{ p.name }}</span>
+                  <small>{{ p.address || 'Alamat belum diisi' }}{{ p.phone ? ' · ' + p.phone : '' }}</small>
+                </div>
+              </ng-template>
+            </p-autocomplete>
+            @if (edit && !rx.customerId) {
+              <p-button icon="pi pi-user-plus" severity="secondary" [outlined]="true" pTooltip="Simpan sebagai pasien baru" tooltipPosition="top" (onClick)="sub.set('patient')" />
+            }
+          </div>
+        </div>
+        <div class="field span-2">
+          <label for="rxPatient">Nama pasien <span class="req">*</span></label>
+          <input pInputText id="rxPatient" [(ngModel)]="rx.patientName" (ngModelChange)="touch()" />
+        </div>
+        <div class="field">
+          <label for="rxAge">Umur</label>
+          <input pInputText id="rxAge" [(ngModel)]="rx.patientAge" (ngModelChange)="touch()" placeholder="Misal: 7 th" />
+        </div>
+        <div class="field">
+          <label for="rxNote">Catatan</label>
+          <input pInputText id="rxNote" [(ngModel)]="rx.note" (ngModelChange)="touch()" />
+        </div>
+        <div class="field span-4">
+          <label for="rxAddr">
+            Alamat pasien
+            @if (hasControlled()) {
+              <span class="req">* wajib untuk narkotika/psikotropika (SIPNAP)</span>
+            }
+          </label>
+          <input pInputText id="rxAddr" [(ngModel)]="rx.patientAddress" (ngModelChange)="touch()" />
+        </div>
+      </fieldset>
+    </section>
+
+    <!-- ─── Obat ───────────────────────────────────────────────────────── -->
+    <section class="card">
+      <header class="card-head">
+        <span class="card-icon"><i class="pi pi-list"></i></span>
+        <div>
+          <h3>Obat, racikan & jasa</h3>
+          <p>Harga mengikuti harga jual & tier grosir saat ini; harga final dihitung ulang saat dibayar.</p>
+        </div>
+      </header>
+
+      @if (edit) {
+        <div class="rx-toolbar">
+          <p-autocomplete
+            [(ngModel)]="productQuery"
+            [suggestions]="productSuggestions"
+            (completeMethod)="searchProducts($event)"
+            (onSelect)="addProduct($event.value)"
+            optionLabel="name"
+            [delay]="200"
+            [autoHighlight]="true"
+            placeholder="Tambah obat: cari nama, generik, kode, atau scan barcode"
+            appendTo="body"
+            styleClass="rx-search"
+            inputStyleClass="w-full"
+          >
+            <ng-template #item let-p>
+              <div class="opt product-opt">
+                <span>
+                  <span class="mono">{{ p.code }}</span> {{ p.name }}
+                  <p-tag [value]="drugClassInfo(p.drugClass).label" [severity]="drugClassInfo(p.drugClass).severity" />
+                </span>
+                <small>
+                  {{ p.genericName || '' }}
+                  · Stok {{ p.stockBase }} {{ p.baseUnitName }}
+                  @if (p.salePrice != null) {
+                    · {{ p.salePrice | rupiah }}/{{ p.saleUnitName }}
+                  }
+                </small>
+              </div>
+            </ng-template>
+            <ng-template #empty>Obat tidak ditemukan.</ng-template>
+          </p-autocomplete>
+          <p-button label="Racikan" icon="pi pi-plus" severity="secondary" [outlined]="true" (onClick)="addCompound()" />
+          <p-button label="Jasa racik" icon="pi pi-plus" severity="secondary" [outlined]="true" (onClick)="addService('Jasa racik')" />
+          <p-button label="Embalase" icon="pi pi-plus" severity="secondary" [outlined]="true" (onClick)="addService('Embalase')" />
+        </div>
+      }
+
+      <table class="rx-items">
+        <thead>
+          <tr>
+            <th style="width: 2.5rem">#</th>
+            <th>Obat / racikan</th>
+            <th style="width: 9.5rem">Satuan</th>
+            <th style="width: 7rem">Jumlah</th>
+            <th style="width: 15rem">Aturan pakai</th>
+            <th style="width: 8.5rem" class="num">Harga</th>
+            <th style="width: 8.5rem" class="num">Subtotal</th>
+            <th style="width: 2.75rem"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of items; track row.key; let i = $index) {
+            @switch (row.kind) {
+              @case ('PRODUCT') {
+                <tr>
+                  <td class="no">{{ i + 1 }}</td>
+                  <td>
+                    <ng-container *ngTemplateOutlet="drugName; context: { $implicit: row }" />
+                  </td>
+                  <td>
+                    <p-select [options]="unitOptions(row)" optionLabel="unitName" optionValue="id" [(ngModel)]="row.productUnitId" (ngModelChange)="touch()" [disabled]="!edit" appendTo="body" size="small" styleClass="w-full" />
+                  </td>
+                  <td><p-inputnumber [(ngModel)]="row.qty" (ngModelChange)="touch()" [min]="1" [max]="100000" [disabled]="!edit" size="small" inputStyleClass="qty" /></td>
+                  <td><input pInputText pSize="small" class="w-full" [(ngModel)]="row.usage" (ngModelChange)="touch()" [disabled]="!edit" placeholder="Misal: 3 x 1 sesudah makan" /></td>
+                  <td class="num">
+                    @let pr = priceOf(row);
+                    {{ pr.price | rupiah }}
+                    @if (pr.tier) {
+                      <small class="tier">grosir ≥ {{ pr.tier }}</small>
+                    }
+                  </td>
+                  <td class="num strong">{{ itemTotal(row) | rupiah }}</td>
+                  <td>
+                    @if (edit) {
+                      <p-button icon="pi pi-trash" severity="danger" [text]="true" [rounded]="true" size="small" ariaLabel="Hapus" (onClick)="removeItem(row)" />
+                    }
+                  </td>
+                </tr>
+              }
+              @case ('COMPOUND') {
+                @let form = compoundFormInfo(row.form);
+                <tr class="compound-head">
+                  <td class="no">{{ i + 1 }}</td>
+                  <td>
+                    <div class="compound-title">
+                      <i class="pi pi-sparkles"></i>
+                      <input pInputText pSize="small" [(ngModel)]="row.name" (ngModelChange)="touch()" [disabled]="!edit" placeholder="Nama racikan" />
+                      <p-select [options]="compoundForms" optionLabel="label" optionValue="value" [(ngModel)]="row.form" (ngModelChange)="touch()" [disabled]="!edit" appendTo="body" size="small" />
+                    </div>
+                  </td>
+                  <td class="muted">{{ form.unit }}</td>
+                  <td><p-inputnumber [(ngModel)]="row.qty" (ngModelChange)="touch()" [min]="1" [max]="100000" [disabled]="!edit" size="small" inputStyleClass="qty" /></td>
+                  <td><input pInputText pSize="small" class="w-full" [(ngModel)]="row.usage" (ngModelChange)="touch()" [disabled]="!edit" [placeholder]="'Misal: 3 x sehari 1 ' + form.unit" /></td>
+                  <td class="num muted">
+                    @if (row.qty) {
+                      <small>≈ {{ itemTotal(row) / row.qty | rupiah }}/{{ form.unit }}</small>
+                    }
+                  </td>
+                  <td class="num strong">{{ itemTotal(row) | rupiah }}</td>
+                  <td>
+                    @if (edit) {
+                      <p-button icon="pi pi-trash" severity="danger" [text]="true" [rounded]="true" size="small" ariaLabel="Hapus racikan" (onClick)="removeItem(row)" />
+                    }
+                  </td>
+                </tr>
+                @for (c of row.components; track c.key) {
+                  <tr class="component">
+                    <td></td>
+                    <td>
+                      <div class="component-name">
+                        <i class="pi pi-angle-right"></i>
+                        <ng-container *ngTemplateOutlet="drugName; context: { $implicit: c }" />
+                      </div>
+                    </td>
+                    <td>
+                      <p-select [options]="unitOptions(c)" optionLabel="unitName" optionValue="id" [(ngModel)]="c.productUnitId" (ngModelChange)="touch()" [disabled]="!edit" appendTo="body" size="small" styleClass="w-full" />
+                    </td>
+                    <td><p-inputnumber [(ngModel)]="c.qty" (ngModelChange)="touch()" [min]="1" [max]="100000" [disabled]="!edit" size="small" inputStyleClass="qty" /></td>
+                    <td class="muted"><small>total untuk seluruh racikan</small></td>
+                    <td class="num">{{ priceOf(c).price | rupiah }}</td>
+                    <td class="num">{{ lineTotal(c) | rupiah }}</td>
+                    <td>
+                      @if (edit) {
+                        <p-button icon="pi pi-times" severity="secondary" [text]="true" [rounded]="true" size="small" ariaLabel="Hapus komponen" (onClick)="removeComponent(row, c)" />
+                      }
+                    </td>
+                  </tr>
+                }
+                @if (edit) {
+                  <tr class="component add">
+                    <td></td>
+                    <td colspan="7">
+                      <p-autocomplete
+                        [(ngModel)]="componentQuery[row.key]"
+                        [suggestions]="productSuggestions"
+                        (completeMethod)="searchProducts($event)"
+                        (onSelect)="addComponent(row, $event.value)"
+                        optionLabel="name"
+                        [delay]="200"
+                        [autoHighlight]="true"
+                        [placeholder]="'Tambah obat ke ' + (row.name || 'racikan')"
+                        appendTo="body"
+                        size="small"
+                        styleClass="rx-search small"
+                        inputStyleClass="w-full"
+                      >
+                        <ng-template #item let-p>
+                          <div class="opt">
+                            <span><span class="mono">{{ p.code }}</span> {{ p.name }}</span>
+                            <small>Stok {{ p.stockBase }} {{ p.baseUnitName }}</small>
+                          </div>
+                        </ng-template>
+                      </p-autocomplete>
+                    </td>
+                  </tr>
+                } @else if (!row.components.length) {
+                  <tr class="component"><td></td><td colspan="7" class="muted">Racikan belum berisi obat.</td></tr>
+                }
+              }
+              @case ('SERVICE') {
+                <tr class="service">
+                  <td class="no">{{ i + 1 }}</td>
+                  <td>
+                    <div class="compound-title">
+                      <i class="pi pi-wrench"></i>
+                      <input pInputText pSize="small" [(ngModel)]="row.name" (ngModelChange)="touch()" [disabled]="!edit" placeholder="Nama jasa" />
+                    </div>
+                  </td>
+                  <td class="muted">jasa</td>
+                  <td><p-inputnumber [(ngModel)]="row.qty" (ngModelChange)="touch()" [min]="1" [max]="100000" [disabled]="!edit" size="small" inputStyleClass="qty" /></td>
+                  <td></td>
+                  <td class="num">
+                    <p-inputnumber [(ngModel)]="row.price" (ngModelChange)="touch()" [min]="0" mode="decimal" locale="id-ID" prefix="Rp" [disabled]="!edit" size="small" inputStyleClass="price" placeholder="Tarif" />
+                  </td>
+                  <td class="num strong">{{ itemTotal(row) | rupiah }}</td>
+                  <td>
+                    @if (edit) {
+                      <p-button icon="pi pi-trash" severity="danger" [text]="true" [rounded]="true" size="small" ariaLabel="Hapus" (onClick)="removeItem(row)" />
+                    }
+                  </td>
+                </tr>
+              }
+            }
+          } @empty {
+            <tr class="empty">
+              <td colspan="8">
+                <i class="pi pi-inbox"></i>
+                <div>Belum ada obat. Cari obat di kolom atas, atau tambah racikan.</div>
+              </td>
+            </tr>
+          }
+        </tbody>
+        @if (items.length) {
+          <tfoot>
+            <tr>
+              <td colspan="6" class="num">
+                Total perkiraan
+                @if (hasHard()) {
+                  <p-tag value="Berisi obat keras" severity="danger" />
+                }
+              </td>
+              <td class="num total">{{ total() | rupiah }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        }
+      </table>
+    </section>
+  }
+
+  <ng-template #footer>
+    <div class="rx-footer">
+      @if (d && edit) {
+        <p-button label="Batalkan resep" icon="pi pi-ban" severity="danger" [text]="true" (onClick)="openCancel()" />
+      }
+      <span class="spacer"></span>
+      <p-button label="Tutup" severity="secondary" [outlined]="true" (onClick)="close()" />
+      @if (canValidate && d?.status === 'DRAFT') {
+        <p-button
+          label="Validasi (skrining)"
+          icon="pi pi-verified"
+          severity="info"
+          [disabled]="dirty"
+          [pTooltip]="dirty ? 'Simpan perubahan dulu' : ''"
+          (onClick)="openScreening()"
+        />
+      }
+      @if (edit) {
+        <p-button label="Simpan" icon="pi pi-check" [loading]="saving()" [disabled]="loading()" (onClick)="save()" />
+      }
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Nama obat + kode + golongan + stok (baris obat & komponen racikan). -->
+<ng-template #drugName let-line>
+  <div class="drug">
+    <span class="drug-name">{{ line.name }}</span>
+    <span class="drug-meta">
+      <span class="mono">{{ line.code }}</span>
+      <p-tag [value]="drugClassInfo(line.drugClass).label" [severity]="drugClassInfo(line.drugClass).severity" />
+      @let stock = savedStock(line.productId);
+      @if (stock != null) {
+        <span [class.short]="stock < (line.qty ?? 0) * (unitOf(line)?.conversion ?? 1)">Stok {{ stock }} {{ line.baseUnit }}</span>
+      }
+    </span>
+  </div>
+</ng-template>
+
+@switch (sub()) {
+  @case ('doctor') {
+    <app-doctor-dialog (saved)="doctorCreated($event)" (closed)="sub.set(null)" />
+  }
+  @case ('patient') {
+    <app-patient-dialog [initial]="newPatientInitial()" (saved)="patientCreated($event)" (closed)="sub.set(null)" />
+  }
+  @case ('screen') {
+    <p-dialog
+      [visible]="true"
+      (visibleChange)="sub.set(null)"
+      [modal]="true"
+      [draggable]="false"
+      [style]="{ width: '520px' }"
+      styleClass="master-dialog"
+    >
+      <ng-template #header>
+        <div class="dlg-head">
+          <span class="dlg-icon"><i class="pi pi-verified"></i></span>
+          <div class="dlg-title">
+            <span class="dlg-name">Skrining resep {{ d?.number }}</span>
+            <span class="dlg-meta">{{ d?.patientName }} · {{ d?.doctorName }}</span>
+          </div>
+        </div>
+      </ng-template>
+      <section class="card">
+        @for (c of screeningChecks; track c.key) {
+          <label class="check-row">
+            <p-checkbox [binary]="true" [(ngModel)]="screening[c.key]" />
+            <span>
+              {{ c.label }}
+              <small>{{ c.hint }}</small>
+            </span>
+          </label>
+        }
+        <div class="field">
+          <label for="screenNote">Catatan apoteker</label>
+          <textarea pTextarea id="screenNote" rows="2" [(ngModel)]="screening.note" placeholder="Opsional, misal hasil konfirmasi ke dokter"></textarea>
+        </div>
+      </section>
+      <ng-template #footer>
+        <p-button label="Batal" severity="secondary" [outlined]="true" (onClick)="sub.set(null)" />
+        <p-button label="Validasi resep" icon="pi pi-verified" [disabled]="!screeningReady()" [loading]="saving()" (onClick)="screen()" />
+      </ng-template>
+    </p-dialog>
+  }
+  @case ('cancel') {
+    <p-dialog
+      [visible]="true"
+      (visibleChange)="sub.set(null)"
+      [modal]="true"
+      [draggable]="false"
+      [style]="{ width: '460px' }"
+      styleClass="master-dialog"
+    >
+      <ng-template #header>
+        <div class="dlg-head">
+          <span class="dlg-icon danger"><i class="pi pi-ban"></i></span>
+          <div class="dlg-title">
+            <span class="dlg-name">Batalkan resep {{ d?.number }}?</span>
+            <span class="dlg-meta">Resep tidak dihapus, hanya ditandai batal dan tidak bisa diubah lagi.</span>
+          </div>
+        </div>
+      </ng-template>
+      <div class="field">
+        <label for="cancelReason">Alasan <span class="req">*</span></label>
+        <input pInputText id="cancelReason" [(ngModel)]="cancelReason" autofocus placeholder="Misal: pasien tidak jadi menebus" (keydown.enter)="cancelPrescription()" />
+      </div>
+      <ng-template #footer>
+        <p-button label="Kembali" severity="secondary" [outlined]="true" (onClick)="sub.set(null)" />
+        <p-button label="Batalkan resep" icon="pi pi-ban" severity="danger" [disabled]="!cancelReason.trim()" [loading]="saving()" (onClick)="cancelPrescription()" />
+      </ng-template>
+    </p-dialog>
+  }
+}

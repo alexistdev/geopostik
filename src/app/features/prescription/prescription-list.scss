@@ -1,0 +1,93 @@
+// Tab status memakai gaya folder global .page-tabs, tetapi berupa tombol (bukan link rute).
+.status-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem calc(1.25rem + var(--tab-slant)) 0.55rem 1.25rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--tab-active);
+  background: var(--tab-bg);
+  border: 0;
+  border-radius: 6px 0 0 0;
+  clip-path: polygon(0 0, calc(100% - var(--tab-slant)) 0, 100% 100%, 0 100%);
+  cursor: pointer;
+  transition: background-color 0.15s;
+
+  i {
+    font-size: 0.85rem;
+  }
+
+  &:hover:not(.active) {
+    background: var(--tab-bg-hover);
+  }
+
+  &.active {
+    color: #fff;
+    background: var(--tab-active);
+  }
+
+  .count {
+    min-width: 1.35rem;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    line-height: 1.35rem;
+    text-align: center;
+    color: #fff;
+    background: var(--p-orange-500);
+
+    &.screened {
+      background: var(--p-sky-600);
+    }
+  }
+}
+
+.data-card > .toolbar {
+  .date-range {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--p-text-muted-color);
+
+    input {
+      width: 9.5rem;
+      padding-block: 0.4rem;
+    }
+  }
+
+  .spacer {
+    flex: 1;
+  }
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  line-height: 1.25;
+
+  small {
+    font-size: 0.75rem;
+    color: var(--p-text-muted-color);
+  }
+}
+
+.tags {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.num {
+  text-align: right;
+}
+
+.strong {
+  font-weight: 600;
+}
+
+tr.clickable {
+  cursor: pointer;
+}

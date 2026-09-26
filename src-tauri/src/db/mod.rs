@@ -23,6 +23,7 @@ static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         M::up(include_str!("../../migrations/010_product_soft_delete.sql")),
         M::up(include_str!("../../migrations/011_user_soft_delete.sql")),
         M::up(include_str!("../../migrations/012_stock.sql")),
+        M::up(include_str!("../../migrations/013_prescriptions.sql")).foreign_key_check(),
     ])
 });
 

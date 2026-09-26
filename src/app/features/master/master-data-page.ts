@@ -10,6 +10,8 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
       <a routerLink="kategori" routerLinkActive="active"><i class="pi pi-tags"></i>Kategori</a>
       <a routerLink="rak" routerLinkActive="active"><i class="pi pi-th-large"></i>Rak</a>
       <a routerLink="pabrik" routerLinkActive="active"><i class="pi pi-building"></i>Pabrik</a>
+      <a routerLink="dokter" routerLinkActive="active"><i class="pi pi-user"></i>Dokter</a>
+      <a routerLink="pasien" routerLinkActive="active"><i class="pi pi-heart"></i>Pasien</a>
     </nav>
     <router-outlet />
   `,
