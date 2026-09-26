@@ -15,7 +15,7 @@ export type Dashboard = {
  */
 today: string, 
 /**
- * Shift kasir & penjualan sendiri. Hak `SHIFT_MANAGE`.
+ * Shift kasir & penjualan sendiri. Hak `SALE_CREATE` (semua yang boleh berjualan, termasuk TTK).
  */
 shift: ShiftPanel | null, 
 /**

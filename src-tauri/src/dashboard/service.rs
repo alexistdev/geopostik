@@ -33,7 +33,7 @@ fn minus_days(d: NaiveDate, n: u64) -> NaiveDate {
 pub fn get(conn: &Connection, user: &SessionUser, today: NaiveDate) -> AppResult<Dashboard> {
     let can = |p: Permission| user.permissions.contains(&p);
 
-    let shift = if can(Permission::ShiftManage) { Some(shift_panel(conn, user, today)?) } else { None };
+    let shift = if can(Permission::SaleCreate) { Some(shift_panel(conn, user, today)?) } else { None };
     let sales = if can(Permission::ReportSales) { Some(sales_panel(conn, can(Permission::ViewCost), today)?) } else { None };
     let stock = if can(Permission::StockCountInput) { Some(stock_panel(conn, can(Permission::ViewCost), today)?) } else { None };
     let prescriptions = if can(Permission::PrescriptionInput) || can(Permission::PrescriptionValidate) {

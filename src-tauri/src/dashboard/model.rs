@@ -8,7 +8,7 @@ use ts_rs::TS;
 pub struct Dashboard {
     /// Tanggal hari ini `YYYY-MM-DD` (jam komputer kasir).
     pub today: String,
-    /// Shift kasir & penjualan sendiri. Hak `SHIFT_MANAGE`.
+    /// Shift kasir & penjualan sendiri. Hak `SALE_CREATE` (semua yang boleh berjualan, termasuk TTK).
     pub shift: Option<ShiftPanel>,
     /// Omzet seluruh apotek. Hak `REPORT_SALES`; laba hanya dengan `VIEW_COST`.
     pub sales: Option<SalesPanel>,

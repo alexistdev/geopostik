@@ -58,7 +58,8 @@ Matriks hak akses:
 
 | Hak | Pemilik | Apoteker | TTK | Kasir |
 |---|:-:|:-:|:-:|:-:|
-| Penjualan bebas, buka/tutup shift, cetak ulang struk | ✓ | ✓ | ✓ | ✓ |
+| Penjualan bebas, cetak ulang struk | ✓ | ✓ | ✓ | ✓ |
+| Buka/tutup shift (uang laci) | ✓ | ✓ | – | ✓ |
 | Jual obat keras / OWA (otorisasi PIN) | – | ✓ | – | – |
 | Resep: input | ✓ | ✓ | ✓ | – |
 | Resep: skrining/validasi, narkotika & psikotropika | – | ✓ | – | – |
@@ -78,6 +79,8 @@ Matriks hak akses:
 | Log audit | ✓ | – | – | – |
 
 - *(atur)* = diatur pemilik lewat pengaturan (default: apoteker boleh).
+- **TTK boleh melayani penjualan** hanya saat ada shift terbuka milik kasir/apoteker/pemilik; TTK
+  tidak membuka atau menutup shift karena tidak memegang tanggung jawab uang laci.
 - **HPP dan laba tidak pernah tampil untuk TTK dan kasir**, termasuk di layar penerimaan
   barang milik TTK (harga beli tetap diinput, tetapi HPP hasil hitung dan margin disembunyikan).
 - Pemilik sengaja tidak memegang kewenangan teknis kefarmasian (obat keras, narkotika,
@@ -312,7 +315,7 @@ peran, user multi-peran melihat gabungan panelnya; urutan panel mengikuti peran 
 
 | Panel | Hak | Isi |
 |---|---|---|
-| Shift kasir | `SHIFT_MANAGE` | shift terbuka (dibuka siapa, sejak kapan), penjualan sendiri hari ini. Modal, penjualan shift, dan tunai seharusnya di laci hanya untuk pemilik shift atau `REPORT_SALES` |
+| Shift kasir | `SALE_CREATE` | shift terbuka (dibuka siapa, sejak kapan), penjualan sendiri hari ini. Modal, penjualan shift, dan tunai seharusnya di laci hanya untuk pemilik shift atau `REPORT_SALES` |
 | Penjualan | `REPORT_SALES` | omzet hari ini (vs kemarin), bulan ini, grafik 7 hari, metode bayar hari ini, nota batal, penjualan resep, 5 obat terlaris bulan ini. Laba kotor (penjualan tanpa PPN − HPP batch) hanya dengan `VIEW_COST` |
 | Resep | `PRESCRIPTION_INPUT` / `PRESCRIPTION_VALIDATE` → antrian `DRAFT` (menunggu skrining); selain itu `SALE_CREATE` → antrian `SCREENED` (siap dibayar di kasir) | jumlah & daftar resep, paling lama menunggu dulu |
 | Peringatan stok | `STOCK_COUNT_INPUT` | jumlah obat di bawah minimal / habis, batch hampir ED (≤ 90 hari) / sudah ED, daftar ED terdekat & stok paling kritis. Nilai persediaan hanya dengan `VIEW_COST` |

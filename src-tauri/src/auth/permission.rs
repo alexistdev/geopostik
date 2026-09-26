@@ -94,6 +94,14 @@ const CASHIER: &[Permission] = &[
     Permission::ReportSalesOwnShift,
 ];
 
+/// TTK ikut melayani penjualan saat shift kasir terbuka, tetapi tidak membuka/menutup shift
+/// (uang laci tanggung jawab kasir/apoteker/pemilik).
+const TECHNICIAN_SALES: &[Permission] = &[
+    Permission::SaleCreate,
+    Permission::ReceiptReprint,
+    Permission::ReportSalesOwnShift,
+];
+
 const TECHNICIAN_EXTRA: &[Permission] = &[
     Permission::PrescriptionInput,
     Permission::ProductManage,
@@ -141,7 +149,7 @@ fn role_permissions(role: Role, access: AccessSettings) -> Vec<Permission> {
     match role {
         Role::Owner => OWNER.to_vec(),
         Role::Cashier => CASHIER.to_vec(),
-        Role::Technician => [CASHIER, TECHNICIAN_EXTRA].concat(),
+        Role::Technician => [TECHNICIAN_SALES, TECHNICIAN_EXTRA].concat(),
         Role::Pharmacist => {
             let mut p = [CASHIER, TECHNICIAN_EXTRA, PHARMACIST_EXTRA].concat();
             if access.pharmacist_can_view_cost {
@@ -177,6 +185,22 @@ mod tests {
             assert!(!p.contains(&Permission::ViewCost), "{role:?}");
             assert!(!p.contains(&Permission::PriceManage), "{role:?}");
         }
+    }
+
+    #[test]
+    fn technician_sells_but_does_not_manage_shifts() {
+        let access = AccessSettings::default();
+        let ttk = effective_permissions(&[Role::Technician], access);
+        assert!(ttk.contains(&Permission::SaleCreate));
+        assert!(ttk.contains(&Permission::ReceiptReprint));
+        assert!(!ttk.contains(&Permission::ShiftManage));
+
+        for role in [Role::Cashier, Role::Pharmacist, Role::Owner] {
+            assert!(effective_permissions(&[role], access).contains(&Permission::ShiftManage), "{role:?}");
+        }
+        // Hak digabung: TTK yang juga kasir boleh membuka shift.
+        let both = effective_permissions(&[Role::Technician, Role::Cashier], access);
+        assert!(both.contains(&Permission::ShiftManage));
     }
 
     #[test]
